@@ -32,6 +32,7 @@ export async function handler(event) {
         recurring_end_type TEXT DEFAULT 'never',
         recurring_end_count INTEGER DEFAULT 10,
         recurring_end_date DATE,
+        recurring_excluded_dates TEXT,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
@@ -61,6 +62,10 @@ export async function handler(event) {
     await sql`
       ALTER TABLE tasks 
       ADD COLUMN IF NOT EXISTS recurring_end_date DATE
+    `;
+    await sql`
+      ALTER TABLE tasks 
+      ADD COLUMN IF NOT EXISTS recurring_excluded_dates TEXT
     `;
 
     // Create metrics table
