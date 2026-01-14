@@ -195,15 +195,19 @@
         const instances = [];
         const startOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
         const endOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+        const excludedDates = task.recurringExcludedDates || [];
         
         let current = new Date(task.dueDate + 'T00:00:00');
         let occurrenceCount = 0;
         
         // Find first occurrence in or after start of month (counting occurrences)
         while (current < startOfMonth) {
-          occurrenceCount++;
+          const currentDateStr = current.toISOString().split('T')[0];
+          if (!excludedDates.includes(currentDateStr)) {
+            occurrenceCount++;
+          }
           if (dateHelpers.hasRecurringEnded(task, current, occurrenceCount)) return instances;
-          const nextDate = dateHelpers.getNextOccurrence({...task, dueDate: current.toISOString().split('T')[0]});
+          const nextDate = dateHelpers.getNextOccurrence({...task, dueDate: currentDateStr});
           if (!nextDate) break;
           current = new Date(nextDate + 'T00:00:00');
         }
@@ -211,18 +215,24 @@
         // Generate instances within the month
         let safetyCounter = 0;
         while (current <= endOfMonth && safetyCounter < 35) {
-          occurrenceCount++;
-          if (dateHelpers.hasRecurringEnded(task, current, occurrenceCount)) break;
+          const currentDateStr = current.toISOString().split('T')[0];
           
-          if (current >= startOfMonth) {
-            instances.push({
-              ...task,
-              dueDate: current.toISOString().split('T')[0],
-              isProjected: current.toISOString().split('T')[0] !== task.dueDate,
-              occurrenceNumber: occurrenceCount
-            });
+          // Skip excluded dates
+          if (!excludedDates.includes(currentDateStr)) {
+            occurrenceCount++;
+            if (dateHelpers.hasRecurringEnded(task, current, occurrenceCount)) break;
+            
+            if (current >= startOfMonth) {
+              instances.push({
+                ...task,
+                dueDate: currentDateStr,
+                isProjected: currentDateStr !== task.dueDate,
+                occurrenceNumber: occurrenceCount
+              });
+            }
           }
-          const nextDate = dateHelpers.getNextOccurrence({...task, dueDate: current.toISOString().split('T')[0]});
+          
+          const nextDate = dateHelpers.getNextOccurrence({...task, dueDate: currentDateStr});
           if (!nextDate) break;
           current = new Date(nextDate + 'T00:00:00');
           safetyCounter++;
@@ -580,7 +590,15 @@
                     <div style={{ fontSize: '12px', opacity: 0.8 }}>Shifts the entire recurring schedule to the new date</div>
                   </button>
                   <button type="button" onClick={() => { 
-                    setShowRecurringDialog(false); 
+                    setShowRecurringDialog(false);
+                    // First, update original task to exclude this date
+                    const existingExcluded = task.recurringExcludedDates || [];
+                    onSave({ 
+                      ...task, 
+                      recurringExcludedDates: [...existingExcluded, originalDate],
+                      completed: task.completed || false
+                    });
+                    // Then create the new standalone task
                     if (onSaveAsNew) {
                       onSaveAsNew({ 
                         ...form, 
@@ -592,6 +610,7 @@
                         recurringEndType: undefined,
                         recurringEndCount: undefined,
                         recurringEndDate: undefined,
+                        recurringExcludedDates: undefined,
                         title: form.title + ' (moved)',
                         completed: false
                       });
@@ -657,6 +676,7 @@
       const handleDragStart = (e, task) => {
         setDraggingTask(task);
         e.dataTransfer.setData('taskId', task.id.toString());
+        e.dataTransfer.setData('fromDate', task.dueDate); // Track the date being dragged from
         e.dataTransfer.effectAllowed = 'move';
       };
 
@@ -674,13 +694,14 @@
       const handleDrop = (e, day) => {
         e.preventDefault();
         const taskId = parseInt(e.dataTransfer.getData('taskId'));
+        const fromDate = e.dataTransfer.getData('fromDate'); // Get the date we're moving from
         const task = tasks.find(t => t.id === taskId);
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const week = dateHelpers.getWeekNumber(new Date(dateStr + 'T00:00:00'));
         
         // If recurring task, show dialog
         if (task && task.recurring) {
-          setRecurringMoveDialog({ task, newDate: dateStr, newWeek: week });
+          setRecurringMoveDialog({ task, newDate: dateStr, newWeek: week, fromDate });
         } else {
           onTaskUpdate(taskId, { dueDate: dateStr, week });
         }
@@ -698,7 +719,13 @@
 
       const handleRecurringMoveOne = () => {
         if (!recurringMoveDialog || !onCreateTask) return;
-        const { task, newDate, newWeek } = recurringMoveDialog;
+        const { task, newDate, newWeek, fromDate } = recurringMoveDialog;
+        
+        // Add the fromDate to excluded dates on the original recurring task
+        const existingExcluded = task.recurringExcludedDates || [];
+        const newExcludedDates = [...existingExcluded, fromDate];
+        onTaskUpdate(task.id, { recurringExcludedDates: newExcludedDates });
+        
         // Create a new non-recurring task for this one instance
         const newTask = {
           ...task,
@@ -712,6 +739,7 @@
           recurringEndType: undefined,
           recurringEndCount: undefined,
           recurringEndDate: undefined,
+          recurringExcludedDates: undefined,
           title: task.title + ' (moved)'
         };
         onCreateTask(newTask);
