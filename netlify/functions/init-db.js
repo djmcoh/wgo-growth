@@ -26,9 +26,41 @@ export async function handler(event) {
         priority TEXT DEFAULT 'medium',
         completed BOOLEAN DEFAULT false,
         recurring BOOLEAN DEFAULT false,
+        recurring_frequency TEXT DEFAULT 'weekly',
+        recurring_include_weekends BOOLEAN DEFAULT false,
+        recurring_weekend_handling TEXT DEFAULT 'next-monday',
+        recurring_end_type TEXT DEFAULT 'never',
+        recurring_end_count INTEGER DEFAULT 10,
+        recurring_end_date DATE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
+    `;
+
+    // Add recurring columns if they don't exist (for existing tables)
+    await sql`
+      ALTER TABLE tasks 
+      ADD COLUMN IF NOT EXISTS recurring_frequency TEXT DEFAULT 'weekly'
+    `;
+    await sql`
+      ALTER TABLE tasks 
+      ADD COLUMN IF NOT EXISTS recurring_include_weekends BOOLEAN DEFAULT false
+    `;
+    await sql`
+      ALTER TABLE tasks 
+      ADD COLUMN IF NOT EXISTS recurring_weekend_handling TEXT DEFAULT 'next-monday'
+    `;
+    await sql`
+      ALTER TABLE tasks 
+      ADD COLUMN IF NOT EXISTS recurring_end_type TEXT DEFAULT 'never'
+    `;
+    await sql`
+      ALTER TABLE tasks 
+      ADD COLUMN IF NOT EXISTS recurring_end_count INTEGER DEFAULT 10
+    `;
+    await sql`
+      ALTER TABLE tasks 
+      ADD COLUMN IF NOT EXISTS recurring_end_date DATE
     `;
 
     // Create metrics table
