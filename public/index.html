@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>WGO Growth Command Center</title>
+  <title>Growth Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -395,10 +395,12 @@
     };
 
     // Task Form Component
-    const TaskForm = ({ task, onSave, onCancel, onSaveAsNew }) => {
+    const TaskForm = ({ task, onSave, onCancel, onSaveAsNew, onDelete }) => {
+      const today = new Date().toISOString().split('T')[0];
+      const todayWeek = dateHelpers.getWeekNumber(new Date());
       const [form, setForm] = useState(task || { 
         title: '', category: 'content', platform: 'general', 
-        week: 1, dueDate: dateHelpers.getDateFromWeek(1), 
+        week: todayWeek, dueDate: today, 
         priority: 'medium', recurring: false,
         recurringFrequency: 'weekly',
         recurringIncludeWeekends: false,
@@ -571,6 +573,14 @@
             <button type="submit" style={{ flex: 1, padding: '12px', background: brand.cream, border: 'none', borderRadius: '8px', color: brand.teal, cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>Save Task</button>
           </div>
 
+          {/* Delete button for existing tasks */}
+          {task?.id && onDelete && (
+            <button type="button" onClick={() => onDelete(task.id)} style={{ width: '100%', marginTop: '12px', padding: '12px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', color: '#f87171', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <Icon name="trash" size={16} color="#f87171" />
+              Delete Task
+            </button>
+          )}
+
           {/* Recurring date change dialog */}
           {showRecurringDialog && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '16px' }} onClick={() => setShowRecurringDialog(false)}>
@@ -585,19 +595,45 @@
                   Moving from {dateHelpers.formatDate(originalDate)} to {dateHelpers.formatDate(form.dueDate)}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <button type="button" onClick={() => { setShowRecurringDialog(false); onSave({ ...form, id: form.id, completed: form.completed || false }); }} style={{ padding: '14px', background: 'rgba(96,165,250,0.2)', border: '1px solid rgba(96,165,250,0.4)', borderRadius: '8px', color: '#60a5fa', cursor: 'pointer', fontSize: '14px', fontWeight: '500', textAlign: 'left' }}>
+                  <button type="button" onClick={() => { 
+                    setShowRecurringDialog(false); 
+                    // Calculate day difference and adjust end date if needed
+                    let updatedForm = { ...form, id: form.id, completed: form.completed || false };
+                    if (form.recurringEndType === 'on-date' && form.recurringEndDate && originalDate) {
+                      const oldDate = new Date(originalDate + 'T00:00:00');
+                      const newDate = new Date(form.dueDate + 'T00:00:00');
+                      const daysDiff = Math.round((newDate - oldDate) / (24 * 60 * 60 * 1000));
+                      const oldEndDate = new Date(form.recurringEndDate + 'T00:00:00');
+                      oldEndDate.setDate(oldEndDate.getDate() + daysDiff);
+                      updatedForm.recurringEndDate = oldEndDate.toISOString().split('T')[0];
+                    }
+                    onSave(updatedForm); 
+                  }} style={{ padding: '14px', background: 'rgba(96,165,250,0.2)', border: '1px solid rgba(96,165,250,0.4)', borderRadius: '8px', color: '#60a5fa', cursor: 'pointer', fontSize: '14px', fontWeight: '500', textAlign: 'left' }}>
                     <div style={{ fontWeight: '600', marginBottom: '4px' }}>Move all occurrences</div>
                     <div style={{ fontSize: '12px', opacity: 0.8 }}>Shifts the entire recurring schedule to the new date</div>
                   </button>
                   <button type="button" onClick={() => { 
                     setShowRecurringDialog(false);
-                    // First, update original task to exclude this date
+                    // Build updates for the original recurring task
                     const existingExcluded = task.recurringExcludedDates || [];
-                    onSave({ 
+                    let updatedTask = { 
                       ...task, 
                       recurringExcludedDates: [...existingExcluded, originalDate],
                       completed: task.completed || false
-                    });
+                    };
+                    
+                    // If we're moving the base occurrence, advance to next occurrence
+                    if (originalDate === task.dueDate) {
+                      const nextOccurrence = dateHelpers.getNextOccurrence(task);
+                      if (nextOccurrence) {
+                        updatedTask.dueDate = nextOccurrence;
+                        updatedTask.week = dateHelpers.getWeekNumber(new Date(nextOccurrence + 'T00:00:00'));
+                        // Don't add originalDate to excluded since we're moving past it
+                        updatedTask.recurringExcludedDates = existingExcluded;
+                      }
+                    }
+                    
+                    onSave(updatedTask);
                     // Then create the new standalone task
                     if (onSaveAsNew) {
                       onSaveAsNew({ 
@@ -712,8 +748,20 @@
 
       const handleRecurringMoveAll = () => {
         if (!recurringMoveDialog) return;
-        const { task, newDate, newWeek } = recurringMoveDialog;
-        onTaskUpdate(task.id, { dueDate: newDate, week: newWeek });
+        const { task, newDate, newWeek, fromDate } = recurringMoveDialog;
+        
+        // Calculate updates including adjusted end date if needed
+        const updates = { dueDate: newDate, week: newWeek };
+        if (task.recurringEndType === 'on-date' && task.recurringEndDate && fromDate) {
+          const oldDate = new Date(fromDate + 'T00:00:00');
+          const newDateObj = new Date(newDate + 'T00:00:00');
+          const daysDiff = Math.round((newDateObj - oldDate) / (24 * 60 * 60 * 1000));
+          const oldEndDate = new Date(task.recurringEndDate + 'T00:00:00');
+          oldEndDate.setDate(oldEndDate.getDate() + daysDiff);
+          updates.recurringEndDate = oldEndDate.toISOString().split('T')[0];
+        }
+        
+        onTaskUpdate(task.id, updates);
         setRecurringMoveDialog(null);
       };
 
@@ -724,7 +772,20 @@
         // Add the fromDate to excluded dates on the original recurring task
         const existingExcluded = task.recurringExcludedDates || [];
         const newExcludedDates = [...existingExcluded, fromDate];
-        onTaskUpdate(task.id, { recurringExcludedDates: newExcludedDates });
+        
+        // If we're moving the base occurrence, advance the recurring task to its next occurrence
+        const updates = { recurringExcludedDates: newExcludedDates };
+        if (fromDate === task.dueDate) {
+          const nextOccurrence = dateHelpers.getNextOccurrence(task);
+          if (nextOccurrence) {
+            updates.dueDate = nextOccurrence;
+            updates.week = dateHelpers.getWeekNumber(new Date(nextOccurrence + 'T00:00:00'));
+            // Remove the old date from excluded (it's no longer needed since we're changing the base)
+            updates.recurringExcludedDates = existingExcluded; // Don't add fromDate since we're moving past it
+          }
+        }
+        
+        onTaskUpdate(task.id, updates);
         
         // Create a new non-recurring task for this one instance
         const newTask = {
@@ -1171,7 +1232,7 @@
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <img src={WGO_LOGO} alt="WGO" style={{ width: '40px', height: '40px', borderRadius: '8px' }} />
               <div className="desktop-only">
-                <h1 style={{ fontSize: '18px', fontWeight: '700', color: brand.cream, margin: 0 }}>WGO Growth Command Center</h1>
+                <h1 style={{ fontSize: '18px', fontWeight: '700', color: brand.cream, margin: 0 }}>Growth Command Center</h1>
               </div>
               <SyncStatus status={syncStatus} onSync={syncFromCloud} />
             </div>
@@ -1442,7 +1503,7 @@
 
           {/* Task Modal */}
           <Modal isOpen={showTaskModal} onClose={() => { setShowTaskModal(false); setEditingTask(null); }} title={editingTask ? 'Edit Task' : 'New Task'}>
-            <TaskForm task={editingTask} onSave={saveTask} onSaveAsNew={createTask} onCancel={() => { setShowTaskModal(false); setEditingTask(null); }} />
+            <TaskForm task={editingTask} onSave={saveTask} onSaveAsNew={createTask} onCancel={() => { setShowTaskModal(false); setEditingTask(null); }} onDelete={(id) => { deleteTask(id); setShowTaskModal(false); setEditingTask(null); }} />
           </Modal>
 
           {/* Settings Modal */}
