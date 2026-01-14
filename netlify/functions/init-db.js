@@ -1,9 +1,12 @@
-Init db · JS
-Copy
-
 import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL);
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
+};
 
 export async function handler(event) {
   if (event.httpMethod === 'OPTIONS') {
@@ -68,44 +71,44 @@ export async function handler(event) {
     // Insert default tasks if table is empty
     const existingTasks = await sql`SELECT COUNT(*) as count FROM tasks`;
     if (parseInt(existingTasks[0].count) === 0) {
-      await sql`
-        INSERT INTO tasks (title, category, platform, week, due_date, priority, completed, recurring) VALUES
-        ('Set up Twitter analytics tracking', 'foundation', 'twitter', 1, '2026-01-06', 'high', false, false),
-        ('Optimize LinkedIn profile completely', 'foundation', 'linkedin', 1, '2026-01-07', 'high', false, false),
-        ('Create list of 50 journalists/influencers', 'networking', 'twitter', 1, '2026-01-08', 'high', false, false),
-        ('Map out Q1 content calendar', 'content', 'substack', 1, '2026-01-09', 'high', false, false),
-        ('Set up metrics tracking spreadsheet', 'analytics', 'general', 1, '2026-01-10', 'medium', false, false),
-        ('Write and publish Q1 first piece', 'content', 'substack', 2, '2026-01-13', 'high', false, false),
-        ('Create 5 Twitter threads', 'content', 'twitter', 2, '2026-01-14', 'high', false, false),
-        ('Write 3 LinkedIn posts', 'content', 'linkedin', 2, '2026-01-15', 'medium', false, false),
-        ('Reach out to 5 newsletters', 'networking', 'substack', 2, '2026-01-16', 'medium', false, false),
-        ('Daily Twitter posting', 'distribution', 'twitter', 3, '2026-01-20', 'high', false, true),
-        ('Engage with 10 key accounts', 'networking', 'twitter', 3, '2026-01-21', 'high', false, true),
-        ('Email 3 journalists', 'networking', 'general', 3, '2026-01-22', 'medium', false, false),
-        ('Review Week 1-3 analytics', 'analytics', 'general', 4, '2026-01-27', 'high', false, false),
-        ('Write Q1 second piece', 'content', 'substack', 4, '2026-01-28', 'high', false, false),
-        ('Plan data visualization projects', 'content', 'general', 4, '2026-01-29', 'medium', false, false),
-        ('Set up Substack welcome sequence', 'foundation', 'substack', 4, '2026-01-30', 'medium', false, false),
-        ('Apply to speak at conferences', 'speaking', 'general', 4, '2026-01-31', 'low', false, false)
-      `;
+      const defaultTasks = [
+        { title: 'Set up Twitter analytics tracking', category: 'foundation', platform: 'twitter', week: 1, due_date: '2026-01-06', priority: 'high' },
+        { title: 'Optimize LinkedIn profile completely', category: 'foundation', platform: 'linkedin', week: 1, due_date: '2026-01-07', priority: 'high' },
+        { title: 'Create list of 50 journalists/influencers', category: 'networking', platform: 'twitter', week: 1, due_date: '2026-01-08', priority: 'high' },
+        { title: 'Map out Q1 content calendar', category: 'content', platform: 'substack', week: 1, due_date: '2026-01-09', priority: 'high' },
+        { title: 'Set up metrics tracking spreadsheet', category: 'analytics', platform: 'general', week: 1, due_date: '2026-01-10', priority: 'medium' },
+        { title: 'Write and publish Q1 first piece', category: 'content', platform: 'substack', week: 2, due_date: '2026-01-13', priority: 'high' },
+        { title: 'Create 5 Twitter threads', category: 'content', platform: 'twitter', week: 2, due_date: '2026-01-14', priority: 'high' },
+        { title: 'Write 3 LinkedIn posts', category: 'content', platform: 'linkedin', week: 2, due_date: '2026-01-15', priority: 'medium' },
+        { title: 'Reach out to 5 newsletters', category: 'networking', platform: 'substack', week: 2, due_date: '2026-01-16', priority: 'medium' },
+        { title: 'Daily Twitter posting', category: 'distribution', platform: 'twitter', week: 3, due_date: '2026-01-20', priority: 'high', recurring: true },
+        { title: 'Engage with 10 key accounts', category: 'networking', platform: 'twitter', week: 3, due_date: '2026-01-21', priority: 'high', recurring: true },
+        { title: 'Email 3 journalists', category: 'networking', platform: 'general', week: 3, due_date: '2026-01-22', priority: 'medium' },
+        { title: 'Review Week 1-3 analytics', category: 'analytics', platform: 'general', week: 4, due_date: '2026-01-27', priority: 'high' },
+        { title: 'Write Q1 second piece', category: 'content', platform: 'substack', week: 4, due_date: '2026-01-28', priority: 'high' },
+        { title: 'Plan data visualization projects', category: 'content', platform: 'general', week: 4, due_date: '2026-01-29', priority: 'medium' },
+        { title: 'Set up Substack welcome sequence', category: 'foundation', platform: 'substack', week: 4, due_date: '2026-01-30', priority: 'medium' },
+        { title: 'Apply to speak at conferences', category: 'speaking', platform: 'general', week: 4, due_date: '2026-01-31', priority: 'low' }
+      ];
+
+      for (const task of defaultTasks) {
+        await sql`
+          INSERT INTO tasks (title, category, platform, week, due_date, priority, recurring)
+          VALUES (${task.title}, ${task.category}, ${task.platform}, ${task.week}, ${task.due_date}, ${task.priority}, ${task.recurring || false})
+        `;
+      }
     }
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true, message: 'Database initialized' })
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, message: 'Database initialized with default tasks' })
     };
   } catch (error) {
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: error.message })
     };
   }
 }
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type'
-};
