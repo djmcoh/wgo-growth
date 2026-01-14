@@ -362,9 +362,10 @@
             </select>
           </div>
           
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(245,236,215,0.7)', fontSize: '14px', marginBottom: '20px', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(245,236,215,0.7)', fontSize: '14px', marginBottom: '20px', cursor: 'pointer' }} title="Mark as a recurring task (visual reminder only - does not auto-create new tasks)">
             <input type="checkbox" checked={form.recurring} onChange={e => setForm({...form, recurring: e.target.checked})} style={{ width: '18px', height: '18px' }} />
             Recurring task
+            <span style={{ fontSize: '11px', color: 'rgba(245,236,215,0.4)' }}>(visual marker)</span>
           </label>
           
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -654,6 +655,7 @@
       const [showTaskModal, setShowTaskModal] = useState(false);
       const [editingTask, setEditingTask] = useState(null);
       const [showSettingsModal, setShowSettingsModal] = useState(false);
+      const [sortMode, setSortMode] = useState('date'); // 'date' or 'priority'
 
       // Persist tasks
       useEffect(() => { storage.set('tasks', tasks); }, [tasks]);
@@ -744,7 +746,23 @@
         }, 1500);
       };
 
-      const filteredTasks = selectedPlatform === 'all' ? tasks : tasks.filter(t => t.platform === selectedPlatform);
+      // Sort helper
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      const sortTasks = (taskList) => {
+        return [...taskList].sort((a, b) => {
+          if (sortMode === 'priority') {
+            // Sort by priority first, then by date within same priority
+            const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+            if (priorityDiff !== 0) return priorityDiff;
+          }
+          // Sort by date (primary for 'date' mode, secondary for 'priority' mode)
+          const dateA = a.dueDate || '9999-99-99';
+          const dateB = b.dueDate || '9999-99-99';
+          return dateA.localeCompare(dateB);
+        });
+      };
+
+      const filteredTasks = sortTasks(selectedPlatform === 'all' ? tasks : tasks.filter(t => t.platform === selectedPlatform));
       
       const tabConfig = [
         { id: 'dashboard', label: 'Dashboard', icon: 'barChart' },
@@ -761,7 +779,7 @@
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <img src={WGO_LOGO} alt="WGO" style={{ width: '40px', height: '40px', borderRadius: '8px' }} />
               <div className="desktop-only">
-                <h1 style={{ fontSize: '18px', fontWeight: '700', color: brand.cream, margin: 0 }}>WGO Growth</h1>
+                <h1 style={{ fontSize: '18px', fontWeight: '700', color: brand.cream, margin: 0 }}>WGO Growth Command Center</h1>
               </div>
               <SyncStatus status={syncStatus} onSync={syncFromCloud} />
             </div>
@@ -864,7 +882,7 @@
                       </button>
                     </div>
                     <div style={{ display: 'grid', gap: '8px' }}>
-                      {tasks.filter(t => !t.completed && t.priority === 'high').slice(0, 5).map(task => (
+                      {sortTasks(tasks.filter(t => !t.completed && t.priority === 'high')).slice(0, 5).map(task => (
                         <div key={task.id} onClick={() => handleTaskClick(task)} style={{ background: 'rgba(245,236,215,0.05)', borderRadius: '10px', padding: '14px 16px', border: '1px solid rgba(245,236,215,0.1)', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
                           <button onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                             <Icon name="circle" size={20} color="rgba(245,236,215,0.4)" />
@@ -894,10 +912,17 @@
                   </div>
                   
                   {/* Filters */}
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
                     {['all', 'twitter', 'linkedin', 'substack', 'general'].map(p => (
                       <button key={p} onClick={() => setSelectedPlatform(p)} style={{ padding: '6px 12px', background: selectedPlatform === p ? 'rgba(245,236,215,0.15)' : 'transparent', border: `1px solid ${selectedPlatform === p ? 'rgba(245,236,215,0.3)' : 'transparent'}`, borderRadius: '6px', color: selectedPlatform === p ? brand.cream : 'rgba(245,236,215,0.5)', cursor: 'pointer', fontSize: '13px', textTransform: 'capitalize' }}>{p}</button>
                     ))}
+                  </div>
+
+                  {/* Sort Toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                    <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.5)' }}>Sort by:</span>
+                    <button onClick={() => setSortMode('date')} style={{ padding: '5px 10px', background: sortMode === 'date' ? 'rgba(245,236,215,0.15)' : 'transparent', border: `1px solid ${sortMode === 'date' ? 'rgba(245,236,215,0.3)' : 'rgba(245,236,215,0.1)'}`, borderRadius: '5px', color: sortMode === 'date' ? brand.cream : 'rgba(245,236,215,0.5)', cursor: 'pointer', fontSize: '12px' }}>Date</button>
+                    <button onClick={() => setSortMode('priority')} style={{ padding: '5px 10px', background: sortMode === 'priority' ? 'rgba(245,236,215,0.15)' : 'transparent', border: `1px solid ${sortMode === 'priority' ? 'rgba(245,236,215,0.3)' : 'rgba(245,236,215,0.1)'}`, borderRadius: '5px', color: sortMode === 'priority' ? brand.cream : 'rgba(245,236,215,0.5)', cursor: 'pointer', fontSize: '12px' }}>Priority</button>
                   </div>
 
                   {/* Task List */}
