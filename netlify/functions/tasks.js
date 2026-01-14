@@ -21,7 +21,7 @@ export async function handler(event) {
     if (method === 'GET') {
       const tasks = await sql`
         SELECT id, title, category, platform, week, 
-               due_date as "dueDate", priority, completed, recurring
+               TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring
         FROM tasks 
         ORDER BY due_date ASC, priority DESC
       `;
@@ -40,7 +40,7 @@ export async function handler(event) {
         INSERT INTO tasks (title, category, platform, week, due_date, priority, completed, recurring)
         VALUES (${data.title}, ${data.category}, ${data.platform}, ${data.week}, 
                 ${data.dueDate}, ${data.priority}, ${data.completed || false}, ${data.recurring || false})
-        RETURNING id, title, category, platform, week, due_date as "dueDate", priority, completed, recurring
+        RETURNING id, title, category, platform, week, TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring
       `;
       
       return {
@@ -65,7 +65,7 @@ export async function handler(event) {
             recurring = ${data.recurring},
             updated_at = NOW()
         WHERE id = ${data.id}
-        RETURNING id, title, category, platform, week, due_date as "dueDate", priority, completed, recurring
+        RETURNING id, title, category, platform, week, TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring
       `;
       
       if (result.length === 0) {
