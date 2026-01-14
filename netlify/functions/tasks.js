@@ -27,44 +27,57 @@ export async function handler(event) {
                recurring_weekend_handling as "recurringWeekendHandling",
                recurring_end_type as "recurringEndType",
                recurring_end_count as "recurringEndCount",
-               TO_CHAR(recurring_end_date, 'YYYY-MM-DD') as "recurringEndDate"
+               TO_CHAR(recurring_end_date, 'YYYY-MM-DD') as "recurringEndDate",
+               recurring_excluded_dates as "recurringExcludedDates"
         FROM tasks 
         ORDER BY due_date ASC, priority DESC
       `;
       
+      // Parse JSON arrays for excluded dates
+      const parsedTasks = tasks.map(task => ({
+        ...task,
+        recurringExcludedDates: task.recurringExcludedDates ? JSON.parse(task.recurringExcludedDates) : []
+      }));
+      
       return {
         statusCode: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify(tasks)
+        body: JSON.stringify(parsedTasks)
       };
     }
     
     // POST - create new task
     if (method === 'POST') {
       const data = JSON.parse(event.body);
+      const excludedDatesJson = data.recurringExcludedDates ? JSON.stringify(data.recurringExcludedDates) : null;
       const result = await sql`
         INSERT INTO tasks (title, category, platform, week, due_date, priority, completed, recurring,
                           recurring_frequency, recurring_include_weekends, recurring_weekend_handling,
-                          recurring_end_type, recurring_end_count, recurring_end_date)
+                          recurring_end_type, recurring_end_count, recurring_end_date, recurring_excluded_dates)
         VALUES (${data.title}, ${data.category}, ${data.platform}, ${data.week}, 
                 ${data.dueDate}, ${data.priority}, ${data.completed || false}, ${data.recurring || false},
                 ${data.recurringFrequency || 'weekly'}, ${data.recurringIncludeWeekends || false}, ${data.recurringWeekendHandling || 'next-monday'},
-                ${data.recurringEndType || 'never'}, ${data.recurringEndCount || 10}, ${data.recurringEndDate || null})
+                ${data.recurringEndType || 'never'}, ${data.recurringEndCount || 10}, ${data.recurringEndDate || null}, ${excludedDatesJson})
         RETURNING id, title, category, platform, week, TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring,
                   recurring_frequency as "recurringFrequency", recurring_include_weekends as "recurringIncludeWeekends", recurring_weekend_handling as "recurringWeekendHandling",
-                  recurring_end_type as "recurringEndType", recurring_end_count as "recurringEndCount", TO_CHAR(recurring_end_date, 'YYYY-MM-DD') as "recurringEndDate"
+                  recurring_end_type as "recurringEndType", recurring_end_count as "recurringEndCount", TO_CHAR(recurring_end_date, 'YYYY-MM-DD') as "recurringEndDate",
+                  recurring_excluded_dates as "recurringExcludedDates"
       `;
+      
+      const task = result[0];
+      task.recurringExcludedDates = task.recurringExcludedDates ? JSON.parse(task.recurringExcludedDates) : [];
       
       return {
         statusCode: 201,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify(result[0])
+        body: JSON.stringify(task)
       };
     }
     
     // PUT - update task
     if (method === 'PUT') {
       const data = JSON.parse(event.body);
+      const excludedDatesJson = data.recurringExcludedDates ? JSON.stringify(data.recurringExcludedDates) : null;
       const result = await sql`
         UPDATE tasks 
         SET title = ${data.title},
@@ -81,11 +94,13 @@ export async function handler(event) {
             recurring_end_type = ${data.recurringEndType || 'never'},
             recurring_end_count = ${data.recurringEndCount || 10},
             recurring_end_date = ${data.recurringEndDate || null},
+            recurring_excluded_dates = ${excludedDatesJson},
             updated_at = NOW()
         WHERE id = ${data.id}
         RETURNING id, title, category, platform, week, TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring,
                   recurring_frequency as "recurringFrequency", recurring_include_weekends as "recurringIncludeWeekends", recurring_weekend_handling as "recurringWeekendHandling",
-                  recurring_end_type as "recurringEndType", recurring_end_count as "recurringEndCount", TO_CHAR(recurring_end_date, 'YYYY-MM-DD') as "recurringEndDate"
+                  recurring_end_type as "recurringEndType", recurring_end_count as "recurringEndCount", TO_CHAR(recurring_end_date, 'YYYY-MM-DD') as "recurringEndDate",
+                  recurring_excluded_dates as "recurringExcludedDates"
       `;
       
       if (result.length === 0) {
@@ -96,10 +111,13 @@ export async function handler(event) {
         };
       }
       
+      const task = result[0];
+      task.recurringExcludedDates = task.recurringExcludedDates ? JSON.parse(task.recurringExcludedDates) : [];
+      
       return {
         statusCode: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify(result[0])
+        body: JSON.stringify(task)
       };
     }
     
