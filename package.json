@@ -1,0 +1,11 @@
+{
+  "name": "wgo-growth-app",
+  "version": "3.0.0",
+  "description": "WGO Growth Command Center",
+  "scripts": {
+    "build": "echo 'No build step needed'"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.0"
+  }
+}
