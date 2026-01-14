@@ -572,18 +572,29 @@
 
     
     // Sync Status Indicator
-    const SyncStatus = ({ status }) => {
+    const SyncStatus = ({ status, onSync, lastSync }) => {
       const config = {
         synced: { icon: 'checkCircle', color: '#4ade80', text: 'Synced' },
         syncing: { icon: 'refresh', color: '#fbbf24', text: 'Syncing...', spin: true },
         offline: { icon: 'circle', color: '#f87171', text: 'Offline' },
         error: { icon: 'circle', color: '#f87171', text: 'Error' }
       }[status] || { icon: 'circle', color: '#666', text: '' };
+      const canSync = status !== 'syncing';
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', fontSize: '11px' }}>
+        <button 
+          onClick={canSync ? onSync : undefined}
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', 
+            background: 'rgba(0,0,0,0.2)', borderRadius: '6px', fontSize: '11px',
+            border: 'none', cursor: canSync ? 'pointer' : 'default',
+            transition: 'background 0.2s'
+          }}
+          title={canSync ? 'Click to sync now' : 'Syncing...'}
+        >
           <Icon name={config.icon} size={12} color={config.color} className={config.spin ? 'spin' : ''} />
           <span style={{ color: config.color }}>{config.text}</span>
-        </div>
+          {canSync && <Icon name="refresh" size={10} color="rgba(245,236,215,0.4)" />}
+        </button>
       );
     };
 
@@ -595,27 +606,45 @@
       const [syncStatus, setSyncStatus] = useState('offline'); // 'synced', 'syncing', 'offline', 'error'
       const [isLoading, setIsLoading] = useState(true);
 
+      // Sync from cloud function (can be called manually)
+      const syncFromCloud = useCallback(async () => {
+        if (syncStatus === 'syncing') return;
+        setSyncStatus('syncing');
+        
+        const cloudTasks = await api.fetchTasks();
+        const cloudMetrics = await api.fetchMetrics();
+        
+        if (cloudTasks !== null) {
+          setTasks(cloudTasks);
+          storage.set('tasks', cloudTasks);
+        }
+        if (cloudMetrics && Object.keys(cloudMetrics).length > 0) {
+          setMetrics(cloudMetrics);
+          storage.set('metrics', cloudMetrics);
+        }
+        
+        setSyncStatus(cloudTasks !== null ? 'synced' : 'offline');
+        return cloudTasks !== null;
+      }, [syncStatus]);
+
       // Load data from cloud on mount
       useEffect(() => {
-        async function loadFromCloud() {
-          setSyncStatus('syncing');
-          const cloudTasks = await api.fetchTasks();
-          const cloudMetrics = await api.fetchMetrics();
-          
-          if (cloudTasks && cloudTasks.length > 0) {
-            setTasks(cloudTasks);
-            storage.set('tasks', cloudTasks);
-          }
-          if (cloudMetrics && Object.keys(cloudMetrics).length > 0) {
-            setMetrics(cloudMetrics);
-            storage.set('metrics', cloudMetrics);
-          }
-          
-          setSyncStatus(cloudTasks !== null ? 'synced' : 'offline');
+        async function initialLoad() {
+          await syncFromCloud();
           setIsLoading(false);
         }
-        loadFromCloud();
+        initialLoad();
       }, []);
+
+      // Auto-sync every 30 seconds
+      useEffect(() => {
+        const interval = setInterval(() => {
+          if (document.visibilityState === 'visible' && syncStatus !== 'syncing') {
+            syncFromCloud();
+          }
+        }, 30000);
+        return () => clearInterval(interval);
+      }, [syncFromCloud, syncStatus]);
       const [showAIPanel, setShowAIPanel] = useState(false);
       const [showMobileMenu, setShowMobileMenu] = useState(false);
       const [aiPrompt, setAiPrompt] = useState('');
@@ -734,7 +763,7 @@
               <div className="desktop-only">
                 <h1 style={{ fontSize: '18px', fontWeight: '700', color: brand.cream, margin: 0 }}>WGO Growth</h1>
               </div>
-              <SyncStatus status={syncStatus} />
+              <SyncStatus status={syncStatus} onSync={syncFromCloud} />
             </div>
             
             {/* Desktop Nav */}
