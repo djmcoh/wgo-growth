@@ -21,7 +21,13 @@ export async function handler(event) {
     if (method === 'GET') {
       const tasks = await sql`
         SELECT id, title, category, platform, week, 
-               TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring
+               TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring,
+               recurring_frequency as "recurringFrequency",
+               recurring_include_weekends as "recurringIncludeWeekends",
+               recurring_weekend_handling as "recurringWeekendHandling",
+               recurring_end_type as "recurringEndType",
+               recurring_end_count as "recurringEndCount",
+               TO_CHAR(recurring_end_date, 'YYYY-MM-DD') as "recurringEndDate"
         FROM tasks 
         ORDER BY due_date ASC, priority DESC
       `;
@@ -37,10 +43,16 @@ export async function handler(event) {
     if (method === 'POST') {
       const data = JSON.parse(event.body);
       const result = await sql`
-        INSERT INTO tasks (title, category, platform, week, due_date, priority, completed, recurring)
+        INSERT INTO tasks (title, category, platform, week, due_date, priority, completed, recurring,
+                          recurring_frequency, recurring_include_weekends, recurring_weekend_handling,
+                          recurring_end_type, recurring_end_count, recurring_end_date)
         VALUES (${data.title}, ${data.category}, ${data.platform}, ${data.week}, 
-                ${data.dueDate}, ${data.priority}, ${data.completed || false}, ${data.recurring || false})
-        RETURNING id, title, category, platform, week, TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring
+                ${data.dueDate}, ${data.priority}, ${data.completed || false}, ${data.recurring || false},
+                ${data.recurringFrequency || 'weekly'}, ${data.recurringIncludeWeekends || false}, ${data.recurringWeekendHandling || 'next-monday'},
+                ${data.recurringEndType || 'never'}, ${data.recurringEndCount || 10}, ${data.recurringEndDate || null})
+        RETURNING id, title, category, platform, week, TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring,
+                  recurring_frequency as "recurringFrequency", recurring_include_weekends as "recurringIncludeWeekends", recurring_weekend_handling as "recurringWeekendHandling",
+                  recurring_end_type as "recurringEndType", recurring_end_count as "recurringEndCount", TO_CHAR(recurring_end_date, 'YYYY-MM-DD') as "recurringEndDate"
       `;
       
       return {
@@ -63,9 +75,17 @@ export async function handler(event) {
             priority = ${data.priority},
             completed = ${data.completed},
             recurring = ${data.recurring},
+            recurring_frequency = ${data.recurringFrequency || 'weekly'},
+            recurring_include_weekends = ${data.recurringIncludeWeekends || false},
+            recurring_weekend_handling = ${data.recurringWeekendHandling || 'next-monday'},
+            recurring_end_type = ${data.recurringEndType || 'never'},
+            recurring_end_count = ${data.recurringEndCount || 10},
+            recurring_end_date = ${data.recurringEndDate || null},
             updated_at = NOW()
         WHERE id = ${data.id}
-        RETURNING id, title, category, platform, week, TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring
+        RETURNING id, title, category, platform, week, TO_CHAR(due_date, 'YYYY-MM-DD') as "dueDate", priority, completed, recurring,
+                  recurring_frequency as "recurringFrequency", recurring_include_weekends as "recurringIncludeWeekends", recurring_weekend_handling as "recurringWeekendHandling",
+                  recurring_end_type as "recurringEndType", recurring_end_count as "recurringEndCount", TO_CHAR(recurring_end_date, 'YYYY-MM-DD') as "recurringEndDate"
       `;
       
       if (result.length === 0) {
