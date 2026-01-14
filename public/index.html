@@ -136,6 +136,99 @@
       isToday: (date) => {
         const today = new Date();
         return dateHelpers.isSameDay(date, today);
+      },
+      isWeekend: (date) => {
+        const day = date.getDay();
+        return day === 0 || day === 6;
+      },
+      getNextMonday: (date) => {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = day === 0 ? 1 : 8 - day;
+        d.setDate(d.getDate() + diff);
+        return d;
+      },
+      getNextOccurrence: (task) => {
+        if (!task.recurring || !task.dueDate) return null;
+        const current = new Date(task.dueDate + 'T00:00:00');
+        let next = new Date(current);
+        
+        switch (task.recurringFrequency) {
+          case 'daily':
+            next.setDate(next.getDate() + 1);
+            // Skip weekends if not included
+            if (!task.recurringIncludeWeekends) {
+              while (dateHelpers.isWeekend(next)) {
+                next.setDate(next.getDate() + 1);
+              }
+            }
+            break;
+          case 'weekly':
+            next.setDate(next.getDate() + 7);
+            break;
+          case 'monthly':
+            next.setMonth(next.getMonth() + 1);
+            // Handle weekend
+            if (task.recurringWeekendHandling === 'next-monday' && dateHelpers.isWeekend(next)) {
+              next = dateHelpers.getNextMonday(next);
+            }
+            break;
+          default:
+            next.setDate(next.getDate() + 7);
+        }
+        return next.toISOString().split('T')[0];
+      },
+      hasRecurringEnded: (task, checkDate, occurrenceCount) => {
+        if (!task.recurring) return false;
+        if (task.recurringEndType === 'never' || !task.recurringEndType) return false;
+        if (task.recurringEndType === 'after' && occurrenceCount >= (task.recurringEndCount || 10)) return true;
+        if (task.recurringEndType === 'on-date' && task.recurringEndDate) {
+          const endDate = new Date(task.recurringEndDate + 'T00:00:00');
+          return checkDate > endDate;
+        }
+        return false;
+      },
+      getRecurringInstances: (task, monthDate) => {
+        // Generate projected recurring instances for calendar display
+        if (!task.recurring || !task.dueDate) return [];
+        
+        const instances = [];
+        const startOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+        const endOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+        
+        let current = new Date(task.dueDate + 'T00:00:00');
+        let occurrenceCount = 0;
+        
+        // Find first occurrence in or after start of month (counting occurrences)
+        while (current < startOfMonth) {
+          occurrenceCount++;
+          if (dateHelpers.hasRecurringEnded(task, current, occurrenceCount)) return instances;
+          const nextDate = dateHelpers.getNextOccurrence({...task, dueDate: current.toISOString().split('T')[0]});
+          if (!nextDate) break;
+          current = new Date(nextDate + 'T00:00:00');
+        }
+        
+        // Generate instances within the month
+        let safetyCounter = 0;
+        while (current <= endOfMonth && safetyCounter < 35) {
+          occurrenceCount++;
+          if (dateHelpers.hasRecurringEnded(task, current, occurrenceCount)) break;
+          
+          if (current >= startOfMonth) {
+            instances.push({
+              ...task,
+              dueDate: current.toISOString().split('T')[0],
+              isProjected: current.toISOString().split('T')[0] !== task.dueDate,
+              occurrenceNumber: occurrenceCount
+            });
+          }
+          const nextDate = dateHelpers.getNextOccurrence({...task, dueDate: current.toISOString().split('T')[0]});
+          if (!nextDate) break;
+          current = new Date(nextDate + 'T00:00:00');
+          safetyCounter++;
+        }
+        
+        return instances;
       }
     };
 
@@ -292,12 +385,22 @@
     };
 
     // Task Form Component
-    const TaskForm = ({ task, onSave, onCancel }) => {
+    const TaskForm = ({ task, onSave, onCancel, onSaveAsNew }) => {
       const [form, setForm] = useState(task || { 
         title: '', category: 'content', platform: 'general', 
         week: 1, dueDate: dateHelpers.getDateFromWeek(1), 
-        priority: 'medium', recurring: false 
+        priority: 'medium', recurring: false,
+        recurringFrequency: 'weekly',
+        recurringIncludeWeekends: false,
+        recurringWeekendHandling: 'next-monday',
+        recurringEndType: 'never',
+        recurringEndCount: 10,
+        recurringEndDate: ''
       });
+      const [showRecurringDialog, setShowRecurringDialog] = useState(false);
+      const originalDate = task?.dueDate;
+      const isExistingRecurring = task?.id && task?.recurring;
+      const dateChanged = isExistingRecurring && form.dueDate !== originalDate;
       
       const handleDateChange = (newDate) => {
         const week = dateHelpers.getWeekNumber(new Date(newDate + 'T00:00:00'));
@@ -308,12 +411,33 @@
         const dueDate = dateHelpers.getDateFromWeek(parseInt(newWeek));
         setForm({...form, week: parseInt(newWeek), dueDate});
       };
+
+      const handleRecurringChange = (checked) => {
+        setForm({
+          ...form, 
+          recurring: checked,
+          recurringFrequency: checked ? (form.recurringFrequency || 'weekly') : undefined,
+          recurringIncludeWeekends: checked ? (form.recurringIncludeWeekends || false) : undefined,
+          recurringWeekendHandling: checked ? (form.recurringWeekendHandling || 'next-monday') : undefined,
+          recurringEndType: checked ? (form.recurringEndType || 'never') : undefined,
+          recurringEndCount: checked ? (form.recurringEndCount || 10) : undefined,
+          recurringEndDate: checked ? (form.recurringEndDate || '') : undefined
+        });
+      };
       
       const inputStyle = { width: '100%', padding: '12px', background: 'rgba(245,236,215,0.08)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '8px', color: brand.cream, fontSize: '14px', marginBottom: '16px' };
       const labelStyle = { display: 'block', color: 'rgba(245,236,215,0.7)', fontSize: '13px', marginBottom: '6px' };
       
       return (
-        <form onSubmit={e => { e.preventDefault(); onSave({ ...form, id: form.id || Date.now(), completed: form.completed || false }); }}>
+        <form onSubmit={e => { 
+          e.preventDefault(); 
+          // If recurring task date changed, show dialog
+          if (dateChanged) {
+            setShowRecurringDialog(true);
+          } else {
+            onSave({ ...form, id: form.id || Date.now(), completed: form.completed || false }); 
+          }
+        }}>
           <label style={labelStyle}>Task Title *</label>
           <input type="text" value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="What needs to be done?" style={inputStyle} required />
           
@@ -362,25 +486,137 @@
             </select>
           </div>
           
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(245,236,215,0.7)', fontSize: '14px', marginBottom: '20px', cursor: 'pointer' }} title="Mark as a recurring task (visual reminder only - does not auto-create new tasks)">
-            <input type="checkbox" checked={form.recurring} onChange={e => setForm({...form, recurring: e.target.checked})} style={{ width: '18px', height: '18px' }} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(245,236,215,0.7)', fontSize: '14px', marginBottom: form.recurring ? '12px' : '20px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.recurring} onChange={e => handleRecurringChange(e.target.checked)} style={{ width: '18px', height: '18px' }} />
             Recurring task
-            <span style={{ fontSize: '11px', color: 'rgba(245,236,215,0.4)' }}>(visual marker)</span>
           </label>
+
+          {form.recurring && (
+            <div style={{ background: 'rgba(245,236,215,0.05)', borderRadius: '8px', padding: '14px', marginBottom: '20px', border: '1px solid rgba(245,236,215,0.1)' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Frequency</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {['daily', 'weekly', 'monthly'].map(freq => (
+                    <button key={freq} type="button" onClick={() => setForm({...form, recurringFrequency: freq})}
+                      style={{ flex: 1, padding: '8px', background: form.recurringFrequency === freq ? 'rgba(245,236,215,0.15)' : 'transparent', border: `1px solid ${form.recurringFrequency === freq ? 'rgba(245,236,215,0.3)' : 'rgba(245,236,215,0.15)'}`, borderRadius: '6px', color: form.recurringFrequency === freq ? brand.cream : 'rgba(245,236,215,0.5)', cursor: 'pointer', fontSize: '13px', textTransform: 'capitalize' }}>
+                      {freq}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {form.recurringFrequency === 'daily' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(245,236,215,0.7)', fontSize: '13px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.recurringIncludeWeekends} onChange={e => setForm({...form, recurringIncludeWeekends: e.target.checked})} style={{ width: '16px', height: '16px' }} />
+                  Include weekends
+                </label>
+              )}
+
+              {form.recurringFrequency === 'monthly' && (
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{...labelStyle, marginBottom: '8px'}}>If date falls on weekend:</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="button" onClick={() => setForm({...form, recurringWeekendHandling: 'keep'})}
+                      style={{ flex: 1, padding: '8px', background: form.recurringWeekendHandling === 'keep' ? 'rgba(245,236,215,0.15)' : 'transparent', border: `1px solid ${form.recurringWeekendHandling === 'keep' ? 'rgba(245,236,215,0.3)' : 'rgba(245,236,215,0.15)'}`, borderRadius: '6px', color: form.recurringWeekendHandling === 'keep' ? brand.cream : 'rgba(245,236,215,0.5)', cursor: 'pointer', fontSize: '12px' }}>
+                      Keep on weekend
+                    </button>
+                    <button type="button" onClick={() => setForm({...form, recurringWeekendHandling: 'next-monday'})}
+                      style={{ flex: 1, padding: '8px', background: form.recurringWeekendHandling === 'next-monday' ? 'rgba(245,236,215,0.15)' : 'transparent', border: `1px solid ${form.recurringWeekendHandling === 'next-monday' ? 'rgba(245,236,215,0.3)' : 'rgba(245,236,215,0.15)'}`, borderRadius: '6px', color: form.recurringWeekendHandling === 'next-monday' ? brand.cream : 'rgba(245,236,215,0.5)', cursor: 'pointer', fontSize: '12px' }}>
+                      Move to Monday
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* End date options */}
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(245,236,215,0.1)' }}>
+                <label style={labelStyle}>Ends</label>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                  {[{id: 'never', label: 'Never'}, {id: 'after', label: 'After'}, {id: 'on-date', label: 'On date'}].map(opt => (
+                    <button key={opt.id} type="button" onClick={() => setForm({...form, recurringEndType: opt.id})}
+                      style={{ flex: 1, padding: '8px', background: form.recurringEndType === opt.id ? 'rgba(245,236,215,0.15)' : 'transparent', border: `1px solid ${form.recurringEndType === opt.id ? 'rgba(245,236,215,0.3)' : 'rgba(245,236,215,0.15)'}`, borderRadius: '6px', color: form.recurringEndType === opt.id ? brand.cream : 'rgba(245,236,215,0.5)', cursor: 'pointer', fontSize: '12px' }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                
+                {form.recurringEndType === 'after' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input type="number" min="1" max="100" value={form.recurringEndCount || 10} onChange={e => setForm({...form, recurringEndCount: parseInt(e.target.value) || 10})}
+                      style={{ width: '70px', padding: '8px', background: 'rgba(245,236,215,0.08)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '6px', color: brand.cream, fontSize: '14px', textAlign: 'center' }} />
+                    <span style={{ color: 'rgba(245,236,215,0.6)', fontSize: '13px' }}>occurrences</span>
+                  </div>
+                )}
+                
+                {form.recurringEndType === 'on-date' && (
+                  <input type="date" value={form.recurringEndDate || ''} onChange={e => setForm({...form, recurringEndDate: e.target.value})}
+                    style={{ padding: '8px 12px', background: 'rgba(245,236,215,0.08)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '6px', color: brand.cream, fontSize: '14px' }} />
+                )}
+              </div>
+            </div>
+          )}
           
           <div style={{ display: 'flex', gap: '12px' }}>
             <button type="button" onClick={onCancel} style={{ flex: 1, padding: '12px', background: 'rgba(245,236,215,0.1)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '8px', color: brand.cream, cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
             <button type="submit" style={{ flex: 1, padding: '12px', background: brand.cream, border: 'none', borderRadius: '8px', color: brand.teal, cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>Save Task</button>
           </div>
+
+          {/* Recurring date change dialog */}
+          {showRecurringDialog && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '16px' }} onClick={() => setShowRecurringDialog(false)}>
+              <div className="fade-in" style={{ background: brand.teal, borderRadius: '16px', border: '1px solid rgba(245,236,215,0.2)', width: '100%', maxWidth: '400px', padding: '24px' }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                  <Icon name="refresh" size={24} color="#60a5fa" />
+                  <h3 style={{ color: brand.cream, fontSize: '18px', fontWeight: '600' }}>Change Recurring Task Date</h3>
+                </div>
+                <p style={{ color: 'rgba(245,236,215,0.7)', fontSize: '14px', marginBottom: '20px', lineHeight: '1.5' }}>
+                  <strong style={{ color: brand.cream }}>{form.title}</strong>
+                  <br />
+                  Moving from {dateHelpers.formatDate(originalDate)} to {dateHelpers.formatDate(form.dueDate)}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button type="button" onClick={() => { setShowRecurringDialog(false); onSave({ ...form, id: form.id, completed: form.completed || false }); }} style={{ padding: '14px', background: 'rgba(96,165,250,0.2)', border: '1px solid rgba(96,165,250,0.4)', borderRadius: '8px', color: '#60a5fa', cursor: 'pointer', fontSize: '14px', fontWeight: '500', textAlign: 'left' }}>
+                    <div style={{ fontWeight: '600', marginBottom: '4px' }}>Move all occurrences</div>
+                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Shifts the entire recurring schedule to the new date</div>
+                  </button>
+                  <button type="button" onClick={() => { 
+                    setShowRecurringDialog(false); 
+                    if (onSaveAsNew) {
+                      onSaveAsNew({ 
+                        ...form, 
+                        id: undefined,
+                        recurring: false,
+                        recurringFrequency: undefined,
+                        recurringIncludeWeekends: undefined,
+                        recurringWeekendHandling: undefined,
+                        recurringEndType: undefined,
+                        recurringEndCount: undefined,
+                        recurringEndDate: undefined,
+                        title: form.title + ' (moved)',
+                        completed: false
+                      });
+                    }
+                  }} style={{ padding: '14px', background: 'rgba(245,236,215,0.08)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '8px', color: brand.cream, cursor: 'pointer', fontSize: '14px', fontWeight: '500', textAlign: 'left' }}>
+                    <div style={{ fontWeight: '600', marginBottom: '4px' }}>Move only this one</div>
+                    <div style={{ fontSize: '12px', opacity: 0.6 }}>Creates a separate task for this date only</div>
+                  </button>
+                  <button type="button" onClick={() => setShowRecurringDialog(false)} style={{ padding: '12px', background: 'transparent', border: '1px solid rgba(245,236,215,0.15)', borderRadius: '8px', color: 'rgba(245,236,215,0.5)', cursor: 'pointer', fontSize: '14px', marginTop: '4px' }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </form>
       );
     };
 
     // Calendar Component
-    const Calendar = ({ tasks, onTaskUpdate, onTaskClick }) => {
+    const Calendar = ({ tasks, onTaskUpdate, onTaskClick, onCreateTask, onNewTask }) => {
       const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 1)); // January 2026
       const [dragOverDate, setDragOverDate] = useState(null);
       const [draggingTask, setDraggingTask] = useState(null);
+      const [recurringMoveDialog, setRecurringMoveDialog] = useState(null); // {task, newDate, newWeek}
 
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -398,7 +634,24 @@
 
       const getTasksForDate = (day) => {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        return tasks.filter(t => t.dueDate === dateStr);
+        
+        // Get non-recurring tasks for this date
+        const regularTasks = tasks.filter(t => !t.recurring && t.dueDate === dateStr);
+        
+        // Get recurring tasks and their projected instances
+        const recurringTasks = tasks.filter(t => t.recurring);
+        const recurringInstances = [];
+        
+        recurringTasks.forEach(task => {
+          const instances = dateHelpers.getRecurringInstances(task, currentDate);
+          instances.forEach(instance => {
+            if (instance.dueDate === dateStr) {
+              recurringInstances.push(instance);
+            }
+          });
+        });
+        
+        return [...regularTasks, ...recurringInstances];
       };
 
       const handleDragStart = (e, task) => {
@@ -421,10 +674,49 @@
       const handleDrop = (e, day) => {
         e.preventDefault();
         const taskId = parseInt(e.dataTransfer.getData('taskId'));
+        const task = tasks.find(t => t.id === taskId);
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const week = dateHelpers.getWeekNumber(new Date(dateStr + 'T00:00:00'));
         
-        onTaskUpdate(taskId, { dueDate: dateStr, week });
+        // If recurring task, show dialog
+        if (task && task.recurring) {
+          setRecurringMoveDialog({ task, newDate: dateStr, newWeek: week });
+        } else {
+          onTaskUpdate(taskId, { dueDate: dateStr, week });
+        }
+        
+        setDragOverDate(null);
+        setDraggingTask(null);
+      };
+
+      const handleRecurringMoveAll = () => {
+        if (!recurringMoveDialog) return;
+        const { task, newDate, newWeek } = recurringMoveDialog;
+        onTaskUpdate(task.id, { dueDate: newDate, week: newWeek });
+        setRecurringMoveDialog(null);
+      };
+
+      const handleRecurringMoveOne = () => {
+        if (!recurringMoveDialog || !onCreateTask) return;
+        const { task, newDate, newWeek } = recurringMoveDialog;
+        // Create a new non-recurring task for this one instance
+        const newTask = {
+          ...task,
+          id: undefined, // Will get new ID
+          dueDate: newDate,
+          week: newWeek,
+          recurring: false,
+          recurringFrequency: undefined,
+          recurringIncludeWeekends: undefined,
+          recurringWeekendHandling: undefined,
+          recurringEndType: undefined,
+          recurringEndCount: undefined,
+          recurringEndDate: undefined,
+          title: task.title + ' (moved)'
+        };
+        onCreateTask(newTask);
+        setRecurringMoveDialog(null);
+      };
         setDragOverDate(null);
         setDraggingTask(null);
       };
@@ -479,23 +771,25 @@
                 {today && <span style={{ fontSize: '10px', background: brand.cream, color: brand.teal, padding: '2px 6px', borderRadius: '4px' }}>Today</span>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '80px', overflow: 'auto' }}>
-                {dayTasks.map(task => (
+                {dayTasks.map((task, idx) => (
                   <div
-                    key={task.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, task)}
+                    key={`${task.id}-${task.dueDate}-${idx}`}
+                    draggable={!task.isProjected}
+                    onDragStart={(e) => !task.isProjected && handleDragStart(e, task)}
                     onDragEnd={handleDragEnd}
                     onClick={() => onTaskClick(task)}
-                    className={draggingTask?.id === task.id ? 'dragging' : ''}
+                    className={draggingTask?.id === task.id && !task.isProjected ? 'dragging' : ''}
                     style={{
                       padding: '4px 6px',
-                      background: platformColors[task.platform].bg,
-                      border: `1px solid ${platformColors[task.platform].border}`,
+                      background: task.isProjected ? 'transparent' : platformColors[task.platform].bg,
+                      border: task.isProjected 
+                        ? `1px dashed ${platformColors[task.platform].border}` 
+                        : `1px solid ${platformColors[task.platform].border}`,
                       borderRadius: '4px',
                       fontSize: '11px',
                       color: brand.cream,
-                      cursor: 'grab',
-                      opacity: task.completed ? 0.5 : 1,
+                      cursor: task.isProjected ? 'pointer' : 'grab',
+                      opacity: task.completed ? 0.5 : task.isProjected ? 0.6 : 1,
                       textDecoration: task.completed ? 'line-through' : 'none',
                       display: 'flex',
                       alignItems: 'center',
@@ -504,9 +798,10 @@
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                     }}
-                    title={task.title}
+                    title={task.isProjected ? `${task.title} (recurring)` : task.title}
                   >
-                    <Icon name="grip" size={10} color="rgba(245,236,215,0.5)" />
+                    {!task.isProjected && <Icon name="grip" size={10} color="rgba(245,236,215,0.5)" />}
+                    {task.recurring && <Icon name="refresh" size={8} color="rgba(245,236,215,0.5)" />}
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</span>
                   </div>
                 ))}
@@ -521,11 +816,11 @@
       return (
         <div>
           {/* Calendar Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '600', color: brand.cream }}>
               {monthNames[month]} {year}
             </h2>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button onClick={prevMonth} style={{ padding: '8px 12px', background: 'rgba(245,236,215,0.1)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                 <Icon name="chevronLeft" size={18} color={brand.cream} />
               </button>
@@ -535,6 +830,12 @@
               <button onClick={nextMonth} style={{ padding: '8px 12px', background: 'rgba(245,236,215,0.1)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                 <Icon name="chevronRight" size={18} color={brand.cream} />
               </button>
+              {onNewTask && (
+                <button onClick={onNewTask} style={{ padding: '8px 16px', background: brand.cream, border: 'none', borderRadius: '8px', cursor: 'pointer', color: brand.teal, fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '8px' }}>
+                  <Icon name="plus" size={16} color={brand.teal} />
+                  New Task
+                </button>
+              )}
             </div>
           </div>
 
@@ -566,7 +867,41 @@
                 <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)', textTransform: 'capitalize' }}>{platform}</span>
               </div>
             ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: '12px', height: '12px', borderRadius: '3px', border: '1px dashed rgba(245,236,215,0.4)' }} />
+              <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Recurring (projected)</span>
+            </div>
           </div>
+
+          {/* Recurring Move Dialog */}
+          {recurringMoveDialog && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }} onClick={() => setRecurringMoveDialog(null)}>
+              <div className="fade-in" style={{ background: brand.teal, borderRadius: '16px', border: '1px solid rgba(245,236,215,0.2)', width: '100%', maxWidth: '400px', padding: '24px' }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                  <Icon name="refresh" size={24} color="#60a5fa" />
+                  <h3 style={{ color: brand.cream, fontSize: '18px', fontWeight: '600' }}>Move Recurring Task</h3>
+                </div>
+                <p style={{ color: 'rgba(245,236,215,0.7)', fontSize: '14px', marginBottom: '20px', lineHeight: '1.5' }}>
+                  <strong style={{ color: brand.cream }}>{recurringMoveDialog.task.title}</strong>
+                  <br />
+                  Moving to {dateHelpers.formatDate(recurringMoveDialog.newDate)}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button onClick={handleRecurringMoveAll} style={{ padding: '14px', background: 'rgba(96,165,250,0.2)', border: '1px solid rgba(96,165,250,0.4)', borderRadius: '8px', color: '#60a5fa', cursor: 'pointer', fontSize: '14px', fontWeight: '500', textAlign: 'left' }}>
+                    <div style={{ fontWeight: '600', marginBottom: '4px' }}>Move all occurrences</div>
+                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Shifts the entire recurring schedule to the new date</div>
+                  </button>
+                  <button onClick={handleRecurringMoveOne} style={{ padding: '14px', background: 'rgba(245,236,215,0.08)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '8px', color: brand.cream, cursor: 'pointer', fontSize: '14px', fontWeight: '500', textAlign: 'left' }}>
+                    <div style={{ fontWeight: '600', marginBottom: '4px' }}>Move only this one</div>
+                    <div style={{ fontSize: '12px', opacity: 0.6 }}>Creates a separate task for this date only</div>
+                  </button>
+                  <button onClick={() => setRecurringMoveDialog(null)} style={{ padding: '12px', background: 'transparent', border: '1px solid rgba(245,236,215,0.15)', borderRadius: '8px', color: 'rgba(245,236,215,0.5)', cursor: 'pointer', fontSize: '14px', marginTop: '4px' }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     };
@@ -668,7 +1003,23 @@
       const toggleTask = async (id) => {
         const task = tasks.find(t => t.id === id);
         if (!task) return;
-        const updated = { ...task, completed: !task.completed };
+        
+        let updated;
+        if (task.recurring && !task.completed) {
+          // For recurring tasks, advance to next date instead of marking complete
+          const nextDate = dateHelpers.getNextOccurrence(task);
+          if (nextDate) {
+            const nextWeek = dateHelpers.getWeekNumber(new Date(nextDate + 'T00:00:00'));
+            updated = { ...task, dueDate: nextDate, week: nextWeek };
+          } else {
+            // If no next date, mark as complete
+            updated = { ...task, completed: true };
+          }
+        } else {
+          // For non-recurring tasks, toggle completed status
+          updated = { ...task, completed: !task.completed };
+        }
+        
         setTasks(tasks.map(t => t.id === id ? updated : t));
         storage.set('tasks', tasks.map(t => t.id === id ? updated : t));
         setSyncStatus('syncing');
@@ -712,6 +1063,22 @@
         }
         setShowTaskModal(false);
         setEditingTask(null);
+      };
+
+      // Create a new task (used by calendar for split recurring)
+      const createTask = async (task) => {
+        setSyncStatus('syncing');
+        const result = await api.createTask(task);
+        if (result) {
+          setTasks([...tasks, result]);
+          storage.set('tasks', [...tasks, result]);
+          setSyncStatus('synced');
+        } else {
+          const newTask = { ...task, id: Date.now() };
+          setTasks([...tasks, newTask]);
+          storage.set('tasks', [...tasks, newTask]);
+          setSyncStatus('error');
+        }
       };
 
       // Update task (used by calendar drag-drop)
@@ -929,12 +1296,15 @@
                   <div style={{ display: 'grid', gap: '8px' }}>
                     {filteredTasks.map(task => (
                       <div key={task.id} style={{ background: task.completed ? 'rgba(74,222,128,0.08)' : 'rgba(245,236,215,0.05)', borderRadius: '10px', padding: '14px 16px', border: task.completed ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(245,236,215,0.1)', display: 'flex', alignItems: 'center', gap: '12px', opacity: task.completed ? 0.7 : 1 }}>
-                        <button onClick={() => toggleTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
-                          <Icon name={task.completed ? 'checkCircle' : 'circle'} size={20} color={task.completed ? '#4ade80' : 'rgba(245,236,215,0.4)'} />
+                        <button onClick={() => toggleTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }} title={task.recurring ? 'Complete & advance to next occurrence' : 'Toggle complete'}>
+                          <Icon name={task.completed ? 'checkCircle' : task.recurring ? 'refresh' : 'circle'} size={20} color={task.completed ? '#4ade80' : task.recurring ? '#60a5fa' : 'rgba(245,236,215,0.4)'} />
                         </button>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: '500', color: task.completed ? 'rgba(245,236,215,0.5)' : brand.cream, fontSize: '14px', textDecoration: task.completed ? 'line-through' : 'none' }}>{task.title}</div>
-                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} • {task.category}{task.recurring ? ' • Recurring' : ''}</div>
+                          <div style={{ fontWeight: '500', color: task.completed ? 'rgba(245,236,215,0.5)' : brand.cream, fontSize: '14px', textDecoration: task.completed ? 'line-through' : 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {task.title}
+                            {task.recurring && <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(96,165,250,0.2)', color: '#60a5fa', borderRadius: '4px', textTransform: 'capitalize' }}>{task.recurringFrequency || 'weekly'}</span>}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} • {task.category}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                           <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', background: task.priority === 'high' ? 'rgba(248,113,113,0.2)' : task.priority === 'medium' ? 'rgba(251,191,36,0.2)' : 'rgba(245,236,215,0.1)', color: task.priority === 'high' ? '#f87171' : task.priority === 'medium' ? '#fbbf24' : 'rgba(245,236,215,0.6)' }}>{task.priority}</span>
@@ -956,6 +1326,8 @@
                   tasks={tasks} 
                   onTaskUpdate={updateTask}
                   onTaskClick={handleTaskClick}
+                  onCreateTask={createTask}
+                  onNewTask={() => { setEditingTask(null); setShowTaskModal(true); }}
                 />
               )}
 
@@ -1045,7 +1417,7 @@
 
           {/* Task Modal */}
           <Modal isOpen={showTaskModal} onClose={() => { setShowTaskModal(false); setEditingTask(null); }} title={editingTask ? 'Edit Task' : 'New Task'}>
-            <TaskForm task={editingTask} onSave={saveTask} onCancel={() => { setShowTaskModal(false); setEditingTask(null); }} />
+            <TaskForm task={editingTask} onSave={saveTask} onSaveAsNew={createTask} onCancel={() => { setShowTaskModal(false); setEditingTask(null); }} />
           </Modal>
 
           {/* Settings Modal */}
