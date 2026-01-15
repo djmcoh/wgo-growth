@@ -1278,18 +1278,65 @@
         setShowTaskModal(true);
       };
 
-      const generateContent = () => {
+      const generateContent = async () => {
         if (!aiPrompt.trim()) return;
         setIsGenerating(true);
-        setTimeout(() => {
-          const responses = {
-            twitter: `🧵 Thread: ${aiPrompt}\n\n1/ The EV charging infrastructure debate is missing something crucial...\n\n2/ While everyone focuses on the number of chargers, the real issue is reliability and uptime.\n\n3/ Here's what the data actually shows: [Add your analysis]\n\n4/ The policy implications are significant...\n\n5/ What do you think? 👇`,
-            linkedin: `📊 New Analysis: ${aiPrompt}\n\nAfter digging into the latest data, I've found surprising patterns that challenge the conventional narrative.\n\nThree key takeaways:\n\n1. [First insight]\n2. [Second insight]\n3. [Third insight]\n\nFull analysis on Watt's Going On (link in comments).`,
-            substack: `# ${aiPrompt}\n\n## The Conventional Wisdom\n[Opening hook]\n\n## What the Data Shows\n[Your analysis]\n\n## Why This Matters\n[Implications]\n\n## What Comes Next\n[Forward-looking]`
-          };
-          setAiResponse(responses[selectedPlatform] || responses.twitter);
+        setAiResponse('');
+        
+        const twitterInstructions = "Write a Twitter/X thread (5-8 tweets). Start with a compelling hook. Use short, punchy sentences. Number each tweet (1/, 2/, etc.). Keep each tweet under 280 characters. Write in an analytical voice with dry humor.";
+        
+        const linkedinInstructions = "Write a LinkedIn post (150-200 words). Start with a hook that stops the scroll. Use line breaks for readability. Include 2-3 key insights. End with a question to drive engagement.";
+        
+        const substackInstructions = "Write a newsletter section (300-500 words). Start with a compelling opening. Include clear section headers. Balance analysis with accessibility. Focus on policy implications.";
+        
+        const instructions = {
+          twitter: twitterInstructions,
+          linkedin: linkedinInstructions,
+          substack: substackInstructions
+        };
+        
+        const systemPrompt = "You are a writing assistant for Dan, who writes 'Watt's Going On' - a newsletter about EV policy, charging infrastructure, and clean energy transitions. Dan's style: analytical, evidence-based, dry humor, explains complex policy accessibly, challenges conventional narratives. " + (instructions[selectedPlatform] || twitterInstructions);
+
+        try {
+          const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-20250514",
+              max_tokens: 1000,
+              system: systemPrompt,
+              messages: [{ role: "user", content: "Write about: " + aiPrompt }]
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(function() { return {}; });
+            if (response.status === 401 || response.status === 403) {
+              setAiResponse("AI generation requires API access. This works in Claude.ai artifact preview, or you can set up an API proxy for your deployed site.");
+            } else {
+              setAiResponse("Error (" + response.status + "): " + (errorData.error?.message || "Request failed"));
+            }
+            return;
+          }
+
+          const data = await response.json();
+          
+          if (data.content && data.content[0] && data.content[0].text) {
+            setAiResponse(data.content[0].text);
+          } else if (data.error) {
+            setAiResponse("Error: " + (data.error.message || "Unknown error"));
+          } else {
+            setAiResponse("No response generated. Please try again.");
+          }
+        } catch (error) {
+          if (error.message && (error.message.includes("Failed to fetch") || error.message.includes("NetworkError"))) {
+            setAiResponse("AI generation requires API access. This works in Claude.ai artifact preview, or you can set up an API proxy for your deployed site.");
+          } else {
+            setAiResponse("Error: " + error.message);
+          }
+        } finally {
           setIsGenerating(false);
-        }, 1500);
+        }
       };
 
       // Sort helper
@@ -1565,7 +1612,13 @@
                   <div style={{ marginBottom: '16px' }}>
                     <label style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)', marginBottom: '6px', display: 'block' }}>Quick prompts</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {['EV tax credits', 'NEVI funding', 'Charging gaps', 'Chinese EVs'].map(prompt => (
+                      {[
+                        'Why apartment dwellers are locked out of the EV revolution',
+                        'The real reason NEVI rollout is so slow',
+                        'What the 45X credit elimination means for US battery production',
+                        'Tesla Supercharger layoffs: one year later',
+                        'The charging reliability problem nobody talks about'
+                      ].map(prompt => (
                         <button key={prompt} onClick={() => setAiPrompt(prompt)} style={{ padding: '6px 10px', background: 'rgba(245,236,215,0.06)', border: '1px solid rgba(245,236,215,0.12)', borderRadius: '6px', color: 'rgba(245,236,215,0.7)', fontSize: '11px', cursor: 'pointer' }}>{prompt}</button>
                       ))}
                     </div>
@@ -1584,9 +1637,15 @@
                     <div style={{ background: 'rgba(245,236,215,0.05)', borderRadius: '10px', border: '1px solid rgba(245,236,215,0.1)', padding: '14px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                         <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.5)' }}>Output</span>
-                        <button onClick={() => navigator.clipboard.writeText(aiResponse)} style={{ padding: '5px 10px', background: 'rgba(245,236,215,0.08)', border: '1px solid rgba(245,236,215,0.15)', borderRadius: '5px', color: 'rgba(245,236,215,0.7)', fontSize: '11px', cursor: 'pointer' }}>Copy</button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={generateContent} disabled={isGenerating} style={{ padding: '5px 10px', background: 'rgba(245,236,215,0.08)', border: '1px solid rgba(245,236,215,0.15)', borderRadius: '5px', color: 'rgba(245,236,215,0.7)', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Icon name="refresh" size={12} color="rgba(245,236,215,0.7)" className={isGenerating ? 'spin' : ''} />
+                            {isGenerating ? 'Working...' : 'Regenerate'}
+                          </button>
+                          <button onClick={() => navigator.clipboard.writeText(aiResponse)} style={{ padding: '5px 10px', background: 'rgba(245,236,215,0.08)', border: '1px solid rgba(245,236,215,0.15)', borderRadius: '5px', color: 'rgba(245,236,215,0.7)', fontSize: '11px', cursor: 'pointer' }}>Copy</button>
+                        </div>
                       </div>
-                      <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '12px', lineHeight: '1.5', color: 'rgba(245,236,215,0.85)', margin: 0 }}>{aiResponse}</pre>
+                      <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '12px', lineHeight: '1.5', color: 'rgba(245,236,215,0.85)', margin: 0, maxHeight: '300px', overflow: 'auto' }}>{aiResponse}</pre>
                     </div>
                   )}
                 </div>
