@@ -901,7 +901,7 @@
         
         // Empty cells for padding
         for (let i = 0; i < startPadding; i++) {
-          days.push(<div key={`empty-${i}`} style={{ aspectRatio: '1', minHeight: '80px', background: 'rgba(0,0,0,0.1)', borderRadius: '6px' }} />);
+          days.push(<div key={`empty-${i}`} style={{ minHeight: '70px', background: 'rgba(0,0,0,0.1)', borderRadius: '4px' }} />);
         }
         
         // Actual days
@@ -921,32 +921,33 @@
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, day)}
               style={{
-                aspectRatio: '1',
-                minHeight: '80px',
+                minHeight: '70px',
                 background: isOver ? 'rgba(245,236,215,0.15)' : isWeekend ? 'rgba(0,0,0,0.15)' : 'rgba(245,236,215,0.05)',
-                borderRadius: '6px',
-                padding: '6px',
+                borderRadius: '4px',
+                padding: '4px',
                 border: isOver ? '2px dashed rgba(245,236,215,0.5)' : today ? `2px solid ${brand.cream}` : '1px solid rgba(245,236,215,0.1)',
                 transition: 'all 0.2s ease',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
+                minWidth: 0,
               }}
             >
               <div style={{ 
-                fontSize: '12px', 
+                fontSize: '11px', 
                 fontWeight: today ? '700' : '500', 
                 color: today ? brand.cream : 'rgba(245,236,215,0.7)',
-                marginBottom: '4px',
+                marginBottom: '2px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
+                gap: '2px',
                 flexShrink: 0,
+                minWidth: 0,
               }}>
                 {day}
-                {today && <span style={{ fontSize: '9px', background: brand.cream, color: brand.teal, padding: '1px 4px', borderRadius: '3px' }}>Today</span>}
+                {today && <span style={{ fontSize: '8px', background: brand.cream, color: brand.teal, padding: '1px 3px', borderRadius: '2px', whiteSpace: 'nowrap' }}>Today</span>}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'auto', minHeight: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', minHeight: 0, minWidth: 0 }}>
                 {dayTasks.map((task, idx) => (
                   <div
                     key={`${task.id}-${task.dueDate}-${idx}`}
@@ -959,29 +960,28 @@
                     onTouchEnd={handleTouchEnd}
                     className={`calendar-task ${draggingTask?.id === task.id && !task.isProjected ? 'dragging' : ''}`}
                     style={{
-                      padding: '2px 4px',
+                      padding: '2px 3px',
                       background: task.isProjected ? 'transparent' : platformColors[task.platform].bg,
                       border: task.isProjected 
                         ? `1px dashed ${platformColors[task.platform].border}` 
                         : `1px solid ${platformColors[task.platform].border}`,
-                      borderRadius: '3px',
-                      fontSize: '10px',
+                      borderRadius: '2px',
+                      fontSize: '9px',
+                      lineHeight: '1.2',
                       color: brand.cream,
                       cursor: task.isProjected ? 'pointer' : 'grab',
                       opacity: task.completed ? 0.5 : task.isProjected ? 0.6 : 1,
                       textDecoration: task.completed ? 'line-through' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '2px',
-                      whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
                       flexShrink: 0,
+                      minWidth: 0,
+                      maxWidth: '100%',
                     }}
                     title={task.isProjected ? `${task.title} (recurring)` : task.title}
                   >
-                    {task.recurring && <Icon name="refresh" size={8} color="rgba(245,236,215,0.5)" />}
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</span>
+                    {task.title}
                   </div>
                 ))}
               </div>
@@ -995,60 +995,60 @@
       return (
         <div ref={calendarRef}>
           {/* Calendar Header */}
-          <div className="calendar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '600', color: brand.cream }}>
+          <div className="calendar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: '600', color: brand.cream }}>
               {monthNames[month]} {year}
             </h2>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button onClick={prevMonth} style={{ padding: '8px 12px', background: 'rgba(245,236,215,0.1)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <Icon name="chevronLeft" size={18} color={brand.cream} />
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button onClick={prevMonth} style={{ padding: '6px 10px', background: 'rgba(245,236,215,0.1)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <Icon name="chevronLeft" size={16} color={brand.cream} />
               </button>
-              <button onClick={() => setCurrentDate(new Date())} style={{ padding: '8px 16px', background: 'rgba(245,236,215,0.1)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '8px', cursor: 'pointer', color: brand.cream, fontSize: '13px' }}>
+              <button onClick={() => setCurrentDate(new Date())} style={{ padding: '6px 12px', background: 'rgba(245,236,215,0.1)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '6px', cursor: 'pointer', color: brand.cream, fontSize: '12px' }}>
                 Today
               </button>
-              <button onClick={nextMonth} style={{ padding: '8px 12px', background: 'rgba(245,236,215,0.1)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <Icon name="chevronRight" size={18} color={brand.cream} />
+              <button onClick={nextMonth} style={{ padding: '6px 10px', background: 'rgba(245,236,215,0.1)', border: '1px solid rgba(245,236,215,0.2)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <Icon name="chevronRight" size={16} color={brand.cream} />
               </button>
               {onNewTask && (
-                <button onClick={onNewTask} style={{ padding: '8px 16px', background: brand.cream, border: 'none', borderRadius: '8px', cursor: 'pointer', color: brand.teal, fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '8px' }}>
-                  <Icon name="plus" size={16} color={brand.teal} />
-                  New Task
+                <button onClick={onNewTask} style={{ padding: '6px 12px', background: brand.cream, border: 'none', borderRadius: '6px', cursor: 'pointer', color: brand.teal, fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Icon name="plus" size={14} color={brand.teal} />
+                  New
                 </button>
               )}
             </div>
           </div>
 
           {/* Instructions */}
-          <div className="calendar-instructions" style={{ background: 'rgba(245,236,215,0.05)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Icon name="grip" size={16} color="rgba(245,236,215,0.5)" />
-            <span style={{ fontSize: '13px', color: 'rgba(245,236,215,0.6)' }}>Drag tasks to reschedule • Click to edit • Touch &amp; hold on mobile</span>
+          <div className="calendar-instructions" style={{ background: 'rgba(245,236,215,0.05)', borderRadius: '6px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="grip" size={14} color="rgba(245,236,215,0.5)" />
+            <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Drag to reschedule • Tap to edit</span>
           </div>
 
           {/* Day Headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '2px', marginBottom: '2px' }}>
             {dayNames.map(day => (
-              <div key={day} style={{ textAlign: 'center', fontSize: '12px', fontWeight: '600', color: 'rgba(245,236,215,0.5)', padding: '8px 0' }}>
+              <div key={day} style={{ textAlign: 'center', fontSize: '11px', fontWeight: '600', color: 'rgba(245,236,215,0.5)', padding: '6px 0' }}>
                 {day}
               </div>
             ))}
           </div>
 
           {/* Calendar Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '2px' }}>
             {renderCalendarDays()}
           </div>
 
           {/* Legend */}
-          <div className="calendar-legend" style={{ display: 'flex', gap: '16px', marginTop: '16px', flexWrap: 'wrap' }}>
+          <div className="calendar-legend" style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap', fontSize: '11px' }}>
             {Object.entries(platformColors).map(([platform, colors]) => (
-              <div key={platform} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: colors.bg, border: `1px solid ${colors.border}` }} />
-                <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)', textTransform: 'capitalize' }}>{platform}</span>
+              <div key={platform} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: colors.bg, border: `1px solid ${colors.border}` }} />
+                <span style={{ color: 'rgba(245,236,215,0.6)', textTransform: 'capitalize' }}>{platform}</span>
               </div>
             ))}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '3px', border: '1px dashed rgba(245,236,215,0.4)' }} />
-              <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Recurring (projected)</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '2px', border: '1px dashed rgba(245,236,215,0.4)' }} />
+              <span style={{ color: 'rgba(245,236,215,0.6)' }}>Recurring</span>
             </div>
           </div>
 
