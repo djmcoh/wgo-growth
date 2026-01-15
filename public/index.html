@@ -1043,7 +1043,7 @@
           {/* Instructions */}
           <div className="calendar-instructions" style={{ background: 'rgba(245,236,215,0.05)', borderRadius: '6px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="grip" size={14} color="rgba(245,236,215,0.5)" />
-            <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Drag to reschedule ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Tap to edit</span>
+            <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Drag to reschedule • Tap to edit</span>
           </div>
 
           {/* Day Headers */}
@@ -1672,7 +1672,7 @@
 
                     <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(245,236,215,0.05)', borderRadius: '8px', border: '1px solid rgba(245,236,215,0.1)' }}>
                       <p style={{ fontSize: '13px', color: 'rgba(245,236,215,0.6)', margin: 0 }}>
-                        Ã°Å¸â€™Â¡ <strong style={{ color: 'rgba(245,236,215,0.8)' }}>Tip:</strong> Metrics are saved automatically. Update weekly for best tracking. See the Collection Guide for where to find each metric.
+                        💡 <strong style={{ color: 'rgba(245,236,215,0.8)' }}>Tip:</strong> Metrics are saved automatically. Update weekly for best tracking. See the Collection Guide for where to find each metric.
                       </p>
                     </div>
                   </div>
@@ -1715,7 +1715,7 @@
                             {task.title}
                             {task.recurring && <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(96,165,250,0.2)', color: '#60a5fa', borderRadius: '4px', textTransform: 'capitalize' }}>{task.recurringFrequency || 'weekly'}</span>}
                           </div>
-                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {task.category}</div>
+                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} • {task.category}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                           <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', background: task.priority === 'high' ? 'rgba(248,113,113,0.2)' : task.priority === 'medium' ? 'rgba(251,191,36,0.2)' : 'rgba(245,236,215,0.1)', color: task.priority === 'high' ? '#f87171' : task.priority === 'medium' ? '#fbbf24' : 'rgba(245,236,215,0.6)' }}>{task.priority}</span>
