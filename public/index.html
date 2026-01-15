@@ -90,13 +90,18 @@
     // Platform colors
     const platformColors = {
       x: { bg: 'rgba(156, 163, 175, 0.15)', accent: '#9CA3AF', border: 'rgba(156, 163, 175, 0.4)' },
+      twitter: { bg: 'rgba(156, 163, 175, 0.15)', accent: '#9CA3AF', border: 'rgba(156, 163, 175, 0.4)' }, // alias for legacy data
       linkedin: { bg: 'rgba(0, 65, 130, 0.15)', accent: '#004182', border: 'rgba(0, 65, 130, 0.4)' },
       substack: { bg: 'rgba(255, 103, 25, 0.15)', accent: '#FF6719', border: 'rgba(255, 103, 25, 0.4)' },
       bluesky: { bg: 'rgba(32, 139, 254, 0.15)', accent: '#208BFE', border: 'rgba(32, 139, 254, 0.4)' },
       general: { bg: 'rgba(245, 236, 215, 0.15)', accent: '#F5ECD7', border: 'rgba(245, 236, 215, 0.4)' },
     };
+    
+    // Fallback for unknown platforms
+    const getPlatformColors = (platform) => platformColors[platform] || platformColors.general;
+    const getPlatformIcon = (platform) => platformIconNames[platform] || 'target';
 
-    const platformIconNames = { x: 'xLogo', linkedin: 'linkedin', substack: 'substack', bluesky: 'bluesky', general: 'target' };
+    const platformIconNames = { x: 'xLogo', twitter: 'xLogo', linkedin: 'linkedin', substack: 'substack', bluesky: 'bluesky', general: 'target' };
 
     // SVG Icons
     const Icon = ({ name, size = 20, color = "currentColor", style = {}, className = "" }) => {
@@ -976,10 +981,10 @@
                     className={`calendar-task ${draggingTask?.id === task.id && !task.isProjected ? 'dragging' : ''}`}
                     style={{
                       padding: '2px 3px',
-                      background: task.isProjected ? 'transparent' : platformColors[task.platform].bg,
+                      background: task.isProjected ? 'transparent' : getPlatformColors(task.platform).bg,
                       border: task.isProjected 
-                        ? `1px dashed ${platformColors[task.platform].border}` 
-                        : `1px solid ${platformColors[task.platform].border}`,
+                        ? `1px dashed ${getPlatformColors(task.platform).border}` 
+                        : `1px solid ${getPlatformColors(task.platform).border}`,
                       borderRadius: '2px',
                       fontSize: '9px',
                       lineHeight: '1.2',
@@ -1036,7 +1041,7 @@
           {/* Instructions */}
           <div className="calendar-instructions" style={{ background: 'rgba(245,236,215,0.05)', borderRadius: '6px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="grip" size={14} color="rgba(245,236,215,0.5)" />
-            <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Drag to reschedule â€¢ Tap to edit</span>
+            <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Drag to reschedule Ã¢â‚¬Â¢ Tap to edit</span>
           </div>
 
           {/* Day Headers */}
@@ -1505,8 +1510,8 @@
                             <div style={{ fontWeight: '500', color: brand.cream, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>
                             <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)}</div>
                           </div>
-                          <div style={{ padding: '3px 8px', borderRadius: '4px', background: platformColors[task.platform].bg, border: `1px solid ${platformColors[task.platform].border}` }}>
-                            <Icon name={platformIconNames[task.platform]} size={12} color={platformColors[task.platform].accent} />
+                          <div style={{ padding: '3px 8px', borderRadius: '4px', background: getPlatformColors(task.platform).bg, border: `1px solid ${getPlatformColors(task.platform).border}` }}>
+                            <Icon name={getPlatformIcon(task.platform)} size={12} color={getPlatformColors(task.platform).accent} />
                           </div>
                         </div>
                       ))}
@@ -1665,7 +1670,7 @@
 
                     <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(245,236,215,0.05)', borderRadius: '8px', border: '1px solid rgba(245,236,215,0.1)' }}>
                       <p style={{ fontSize: '13px', color: 'rgba(245,236,215,0.6)', margin: 0 }}>
-                        💡 <strong style={{ color: 'rgba(245,236,215,0.8)' }}>Tip:</strong> Metrics are saved automatically. Update weekly for best tracking. See the Collection Guide for where to find each metric.
+                        ðŸ’¡ <strong style={{ color: 'rgba(245,236,215,0.8)' }}>Tip:</strong> Metrics are saved automatically. Update weekly for best tracking. See the Collection Guide for where to find each metric.
                       </p>
                     </div>
                   </div>
@@ -1708,7 +1713,7 @@
                             {task.title}
                             {task.recurring && <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(96,165,250,0.2)', color: '#60a5fa', borderRadius: '4px', textTransform: 'capitalize' }}>{task.recurringFrequency || 'weekly'}</span>}
                           </div>
-                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} â€¢ {task.category}</div>
+                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} Ã¢â‚¬Â¢ {task.category}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                           <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', background: task.priority === 'high' ? 'rgba(248,113,113,0.2)' : task.priority === 'medium' ? 'rgba(251,191,36,0.2)' : 'rgba(245,236,215,0.1)', color: task.priority === 'high' ? '#f87171' : task.priority === 'medium' ? '#fbbf24' : 'rgba(245,236,215,0.6)' }}>{task.priority}</span>
