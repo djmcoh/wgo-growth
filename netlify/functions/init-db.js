@@ -109,17 +109,17 @@ export async function handler(event) {
     const existingTasks = await sql`SELECT COUNT(*) as count FROM tasks`;
     if (parseInt(existingTasks[0].count) === 0) {
       const defaultTasks = [
-        { title: 'Set up Twitter analytics tracking', category: 'foundation', platform: 'twitter', week: 1, due_date: '2026-01-06', priority: 'high' },
+        { title: 'Set up Twitter analytics tracking', category: 'foundation', platform: 'x', week: 1, due_date: '2026-01-06', priority: 'high' },
         { title: 'Optimize LinkedIn profile completely', category: 'foundation', platform: 'linkedin', week: 1, due_date: '2026-01-07', priority: 'high' },
-        { title: 'Create list of 50 journalists/influencers', category: 'networking', platform: 'twitter', week: 1, due_date: '2026-01-08', priority: 'high' },
+        { title: 'Create list of 50 journalists/influencers', category: 'networking', platform: 'x', week: 1, due_date: '2026-01-08', priority: 'high' },
         { title: 'Map out Q1 content calendar', category: 'content', platform: 'substack', week: 1, due_date: '2026-01-09', priority: 'high' },
         { title: 'Set up metrics tracking spreadsheet', category: 'analytics', platform: 'general', week: 1, due_date: '2026-01-10', priority: 'medium' },
         { title: 'Write and publish Q1 first piece', category: 'content', platform: 'substack', week: 2, due_date: '2026-01-13', priority: 'high' },
-        { title: 'Create 5 Twitter threads', category: 'content', platform: 'twitter', week: 2, due_date: '2026-01-14', priority: 'high' },
+        { title: 'Create 5 Twitter threads', category: 'content', platform: 'x', week: 2, due_date: '2026-01-14', priority: 'high' },
         { title: 'Write 3 LinkedIn posts', category: 'content', platform: 'linkedin', week: 2, due_date: '2026-01-15', priority: 'medium' },
         { title: 'Reach out to 5 newsletters', category: 'networking', platform: 'substack', week: 2, due_date: '2026-01-16', priority: 'medium' },
-        { title: 'Daily Twitter posting', category: 'distribution', platform: 'twitter', week: 3, due_date: '2026-01-20', priority: 'high', recurring: true },
-        { title: 'Engage with 10 key accounts', category: 'networking', platform: 'twitter', week: 3, due_date: '2026-01-21', priority: 'high', recurring: true },
+        { title: 'Daily Twitter posting', category: 'distribution', platform: 'x', week: 3, due_date: '2026-01-20', priority: 'high', recurring: true },
+        { title: 'Engage with 10 key accounts', category: 'networking', platform: 'x', week: 3, due_date: '2026-01-21', priority: 'high', recurring: true },
         { title: 'Email 3 journalists', category: 'networking', platform: 'general', week: 3, due_date: '2026-01-22', priority: 'medium' },
         { title: 'Review Week 1-3 analytics', category: 'analytics', platform: 'general', week: 4, due_date: '2026-01-27', priority: 'high' },
         { title: 'Write Q1 second piece', category: 'content', platform: 'substack', week: 4, due_date: '2026-01-28', priority: 'high' },
