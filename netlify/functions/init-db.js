@@ -95,13 +95,19 @@ export async function handler(event) {
     
     await sql`
       INSERT INTO metrics (platform, followers, growth, impressions, engagement)
-      VALUES ('twitter', 847, 12.4, 24500, 3.2)
+      VALUES ('x', 847, 12.4, 24500, 3.2)
       ON CONFLICT (platform) DO NOTHING
     `;
     
     await sql`
       INSERT INTO metrics (platform, connections, growth, views, engagement)
       VALUES ('linkedin', 623, 5.1, 1240, 4.8)
+      ON CONFLICT (platform) DO NOTHING
+    `;
+
+    await sql`
+      INSERT INTO metrics (platform, followers, growth, impressions)
+      VALUES ('bluesky', 125, 0, 45)
       ON CONFLICT (platform) DO NOTHING
     `;
 
