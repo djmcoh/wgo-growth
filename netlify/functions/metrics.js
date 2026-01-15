@@ -28,11 +28,11 @@ export async function handler(event) {
           metrics.substack = {
             subscribers: row.subscribers || 0,
             growth: parseFloat(row.growth) || 0,
-            opens: parseFloat(row.opens) || 0,
-            clicks: parseFloat(row.clicks) || 0
+            openRate: parseFloat(row.opens) || 0,
+            paidSubscribers: 0
           };
-        } else if (row.platform === 'twitter') {
-          metrics.twitter = {
+        } else if (row.platform === 'twitter' || row.platform === 'x') {
+          metrics.x = {
             followers: row.followers || 0,
             growth: parseFloat(row.growth) || 0,
             impressions: row.impressions || 0,
@@ -40,10 +40,17 @@ export async function handler(event) {
           };
         } else if (row.platform === 'linkedin') {
           metrics.linkedin = {
+            followers: row.connections || 0,
             connections: row.connections || 0,
             growth: parseFloat(row.growth) || 0,
-            views: row.views || 0,
+            impressions: row.views || 0,
             engagement: parseFloat(row.engagement) || 0
+          };
+        } else if (row.platform === 'bluesky') {
+          metrics.bluesky = {
+            followers: row.followers || 0,
+            growth: parseFloat(row.growth) || 0,
+            posts: row.impressions || 0
           };
         }
       });
@@ -63,32 +70,40 @@ export async function handler(event) {
       if (platform === 'substack') {
         await sql`
           UPDATE metrics 
-          SET subscribers = ${values.subscribers},
-              growth = ${values.growth},
-              opens = ${values.opens},
-              clicks = ${values.clicks},
+          SET subscribers = ${values.subscribers || 0},
+              growth = ${values.growth || 0},
+              opens = ${values.openRate || 0},
               updated_at = NOW()
           WHERE platform = 'substack'
         `;
-      } else if (platform === 'twitter') {
+      } else if (platform === 'x' || platform === 'twitter') {
         await sql`
           UPDATE metrics 
-          SET followers = ${values.followers},
-              growth = ${values.growth},
-              impressions = ${values.impressions},
-              engagement = ${values.engagement},
+          SET followers = ${values.followers || 0},
+              growth = ${values.growth || 0},
+              impressions = ${values.impressions || 0},
+              engagement = ${values.engagement || 0},
               updated_at = NOW()
-          WHERE platform = 'twitter'
+          WHERE platform = 'x' OR platform = 'twitter'
         `;
       } else if (platform === 'linkedin') {
         await sql`
           UPDATE metrics 
-          SET connections = ${values.connections},
-              growth = ${values.growth},
-              views = ${values.views},
-              engagement = ${values.engagement},
+          SET connections = ${values.connections || values.followers || 0},
+              growth = ${values.growth || 0},
+              views = ${values.impressions || 0},
+              engagement = ${values.engagement || 0},
               updated_at = NOW()
           WHERE platform = 'linkedin'
+        `;
+      } else if (platform === 'bluesky') {
+        await sql`
+          UPDATE metrics 
+          SET followers = ${values.followers || 0},
+              growth = ${values.growth || 0},
+              impressions = ${values.posts || 0},
+              updated_at = NOW()
+          WHERE platform = 'bluesky'
         `;
       }
       
