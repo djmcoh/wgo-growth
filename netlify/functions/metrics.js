@@ -76,6 +76,11 @@ export async function handler(event) {
               updated_at = NOW()
           WHERE platform = 'substack'
         `;
+        // Record history
+        await sql`
+          INSERT INTO metrics_history (platform, subscribers, growth, opens)
+          VALUES ('substack', ${values.subscribers || 0}, ${values.growth || 0}, ${values.openRate || 0})
+        `;
       } else if (platform === 'x' || platform === 'twitter') {
         await sql`
           UPDATE metrics 
@@ -85,6 +90,11 @@ export async function handler(event) {
               engagement = ${values.engagement || 0},
               updated_at = NOW()
           WHERE platform = 'x' OR platform = 'twitter'
+        `;
+        // Record history
+        await sql`
+          INSERT INTO metrics_history (platform, followers, growth, impressions, engagement)
+          VALUES ('x', ${values.followers || 0}, ${values.growth || 0}, ${values.impressions || 0}, ${values.engagement || 0})
         `;
       } else if (platform === 'linkedin') {
         await sql`
@@ -96,6 +106,11 @@ export async function handler(event) {
               updated_at = NOW()
           WHERE platform = 'linkedin'
         `;
+        // Record history
+        await sql`
+          INSERT INTO metrics_history (platform, connections, growth, views, engagement)
+          VALUES ('linkedin', ${values.connections || values.followers || 0}, ${values.growth || 0}, ${values.impressions || 0}, ${values.engagement || 0})
+        `;
       } else if (platform === 'bluesky') {
         await sql`
           UPDATE metrics 
@@ -104,6 +119,11 @@ export async function handler(event) {
               impressions = ${values.posts || 0},
               updated_at = NOW()
           WHERE platform = 'bluesky'
+        `;
+        // Record history
+        await sql`
+          INSERT INTO metrics_history (platform, followers, growth, impressions)
+          VALUES ('bluesky', ${values.followers || 0}, ${values.growth || 0}, ${values.posts || 0})
         `;
       }
       
