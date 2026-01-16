@@ -1054,7 +1054,7 @@
           {/* Instructions */}
           <div className="calendar-instructions" style={{ background: 'rgba(245,236,215,0.05)', borderRadius: '6px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="grip" size={14} color="rgba(245,236,215,0.5)" />
-            <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Drag to reschedule Ã¢â‚¬Â¢ Tap to edit</span>
+            <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Drag to reschedule • Tap to edit</span>
           </div>
 
           {/* Day Headers */}
@@ -1150,7 +1150,10 @@
     function WGOGrowthApp() {
       const [activeTab, setActiveTab] = useState('dashboard');
       const [tasks, setTasks] = useState(() => storage.get('tasks', defaultTasks));
-      const [metrics, setMetrics] = useState(() => storage.get('metrics', defaultMetrics));
+      const [metrics, setMetrics] = useState(() => {
+        const stored = storage.get('metrics', null);
+        return stored && Object.keys(stored).length > 0 ? { ...defaultMetrics, ...stored } : defaultMetrics;
+      });
       const [syncStatus, setSyncStatus] = useState('offline'); // 'synced', 'syncing', 'offline', 'error'
       const [isLoading, setIsLoading] = useState(true);
 
@@ -1167,8 +1170,10 @@
           storage.set('tasks', cloudTasks);
         }
         if (cloudMetrics && Object.keys(cloudMetrics).length > 0) {
-          setMetrics(cloudMetrics);
-          storage.set('metrics', cloudMetrics);
+          // Merge with defaults to ensure all platforms exist
+          const mergedMetrics = { ...defaultMetrics, ...cloudMetrics };
+          setMetrics(mergedMetrics);
+          storage.set('metrics', mergedMetrics);
         }
         
         setSyncStatus(cloudTasks !== null ? 'synced' : 'offline');
@@ -1184,15 +1189,18 @@
         initialLoad();
       }, []);
 
-      // Auto-sync every 30 seconds
+      const [metricsDirty, setMetricsDirty] = useState(false);
+      const [metricsSaving, setMetricsSaving] = useState(false);
+
+      // Auto-sync every 30 seconds (but don't overwrite unsaved metrics)
       useEffect(() => {
         const interval = setInterval(() => {
-          if (document.visibilityState === 'visible' && syncStatus !== 'syncing') {
+          if (document.visibilityState === 'visible' && syncStatus !== 'syncing' && !metricsDirty) {
             syncFromCloud();
           }
         }, 30000);
         return () => clearInterval(interval);
-      }, [syncFromCloud, syncStatus]);
+      }, [syncFromCloud, syncStatus, metricsDirty]);
       const [showAIPanel, setShowAIPanel] = useState(false);
       const [showMobileMenu, setShowMobileMenu] = useState(false);
       const [aiPrompt, setAiPrompt] = useState('');
@@ -1203,8 +1211,6 @@
       const [editingTask, setEditingTask] = useState(null);
       const [showSettingsModal, setShowSettingsModal] = useState(false);
       const [sortMode, setSortMode] = useState('date'); // 'date' or 'priority'
-      const [metricsDirty, setMetricsDirty] = useState(false);
-      const [metricsSaving, setMetricsSaving] = useState(false);
 
       // Update metrics with dirty tracking
       const updateMetrics = (newMetrics) => {
@@ -1711,7 +1717,7 @@
 
                     <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(245,236,215,0.05)', borderRadius: '8px', border: '1px solid rgba(245,236,215,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                       <p style={{ fontSize: '13px', color: 'rgba(245,236,215,0.6)', margin: 0 }}>
-                        ðŸ’¡ <strong style={{ color: 'rgba(245,236,215,0.8)' }}>Tip:</strong> Update your metrics weekly. Click Save to store changes.
+                        <strong style={{ color: 'rgba(245,236,215,0.8)' }}>Tip:</strong> Update your metrics weekly. Click Save to store changes.
                       </p>
                       <button onClick={saveMetricsToCloud} disabled={!metricsDirty || metricsSaving} style={{ padding: '10px 20px', background: metricsDirty ? brand.cream : 'rgba(245,236,215,0.2)', border: 'none', borderRadius: '8px', color: metricsDirty ? brand.teal : 'rgba(245,236,215,0.5)', cursor: metricsDirty ? 'pointer' : 'default', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Icon name={metricsSaving ? 'refresh' : 'upload'} size={16} color={metricsDirty ? brand.teal : 'rgba(245,236,215,0.5)'} />
@@ -1758,7 +1764,7 @@
                             {task.title}
                             {task.recurring && <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(96,165,250,0.2)', color: '#60a5fa', borderRadius: '4px', textTransform: 'capitalize' }}>{task.recurringFrequency || 'weekly'}</span>}
                           </div>
-                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} Ã¢â‚¬Â¢ {task.category}</div>
+                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} • {task.category}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                           <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', background: task.priority === 'high' ? 'rgba(248,113,113,0.2)' : task.priority === 'medium' ? 'rgba(251,191,36,0.2)' : 'rgba(245,236,215,0.1)', color: task.priority === 'high' ? '#f87171' : task.priority === 'medium' ? '#fbbf24' : 'rgba(245,236,215,0.6)' }}>{task.priority}</span>
