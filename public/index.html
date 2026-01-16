@@ -1054,7 +1054,7 @@
           {/* Instructions */}
           <div className="calendar-instructions" style={{ background: 'rgba(245,236,215,0.05)', borderRadius: '6px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="grip" size={14} color="rgba(245,236,215,0.5)" />
-            <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Drag to reschedule â€¢ Tap to edit</span>
+            <span style={{ fontSize: '12px', color: 'rgba(245,236,215,0.6)' }}>Drag to reschedule Ã¢â‚¬Â¢ Tap to edit</span>
           </div>
 
           {/* Day Headers */}
@@ -1508,21 +1508,22 @@
                       {Object.entries(metrics).map(([platform, data]) => {
                         const target = targets[currentQuarter][platform];
                         if (!target) return null;
+                        const colors = getPlatformColors(platform);
                         const mainMetric = platform === 'substack' ? 'subscribers' : 'followers';
                         const progress = Math.round((data[mainMetric] / target[mainMetric]) * 100);
                         return (
-                          <div key={platform} style={{ background: platformColors[platform].bg, borderRadius: '12px', padding: '20px', border: `1px solid ${platformColors[platform].border}` }}>
+                          <div key={platform} style={{ background: colors.bg, borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
                               <span style={{ color: 'rgba(245,236,215,0.8)', fontSize: '13px', textTransform: 'capitalize' }}>{platform}</span>
-                              <Icon name={platformIconNames[platform]} size={18} color={platformColors[platform].accent} />
+                              <Icon name={getPlatformIcon(platform)} size={18} color={colors.accent} />
                             </div>
                             <div style={{ fontSize: '32px', fontWeight: '700', color: brand.cream }}>{data[mainMetric]?.toLocaleString() || 0}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                               <Icon name="trendingUp" size={12} color="#4ade80" />
-                              <span style={{ fontSize: '12px', color: '#4ade80' }}>+{data.growth}%</span>
+                              <span style={{ fontSize: '12px', color: '#4ade80' }}>+{data.growth || 0}%</span>
                             </div>
                             <div style={{ height: '4px', background: 'rgba(245,236,215,0.2)', borderRadius: '2px' }}>
-                              <div style={{ height: '100%', width: `${Math.min(progress, 100)}%`, background: platformColors[platform].accent, borderRadius: '2px' }} />
+                              <div style={{ height: '100%', width: `${Math.min(progress, 100)}%`, background: colors.accent, borderRadius: '2px' }} />
                             </div>
                           </div>
                         );
@@ -1577,6 +1578,7 @@
                     {Object.entries(metrics).map(([platform, data]) => {
                       const target = targets[currentQuarter][platform];
                       if (!target) return null;
+                      const colors = getPlatformColors(platform);
                       const mainMetric = platform === 'substack' ? 'subscribers' : 'followers';
                       const currentValue = data[mainMetric] || 0;
                       const targetValue = target[mainMetric];
@@ -1584,11 +1586,11 @@
                       const remaining = Math.max(targetValue - currentValue, 0);
                       
                       return (
-                        <div key={platform} style={{ background: platformColors[platform].bg, borderRadius: '16px', padding: '24px', border: `1px solid ${platformColors[platform].border}` }}>
+                        <div key={platform} style={{ background: colors.bg, borderRadius: '16px', padding: '24px', border: `1px solid ${colors.border}` }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                <Icon name={platformIconNames[platform]} size={20} color={platformColors[platform].accent} />
+                                <Icon name={getPlatformIcon(platform)} size={20} color={colors.accent} />
                                 <span style={{ color: brand.cream, fontSize: '16px', fontWeight: '600', textTransform: 'capitalize' }}>{platform}</span>
                               </div>
                               <span style={{ color: 'rgba(245,236,215,0.5)', fontSize: '12px' }}>{target.label}</span>
@@ -1601,12 +1603,12 @@
                           
                           <div style={{ marginBottom: '12px' }}>
                             <div style={{ height: '8px', background: 'rgba(245,236,215,0.15)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${progress}%`, background: platformColors[platform].accent, borderRadius: '4px', transition: 'width 0.3s ease' }} />
+                              <div style={{ height: '100%', width: `${progress}%`, background: colors.accent, borderRadius: '4px', transition: 'width 0.3s ease' }} />
                             </div>
                           </div>
                           
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                            <span style={{ color: platformColors[platform].accent, fontWeight: '600' }}>{progress}% complete</span>
+                            <span style={{ color: colors.accent, fontWeight: '600' }}>{progress}% complete</span>
                             <span style={{ color: 'rgba(245,236,215,0.5)' }}>{remaining.toLocaleString()} to go</span>
                           </div>
                         </div>
@@ -1709,7 +1711,7 @@
 
                     <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(245,236,215,0.05)', borderRadius: '8px', border: '1px solid rgba(245,236,215,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                       <p style={{ fontSize: '13px', color: 'rgba(245,236,215,0.6)', margin: 0 }}>
-                        💡 <strong style={{ color: 'rgba(245,236,215,0.8)' }}>Tip:</strong> Update your metrics weekly. Click Save to store changes.
+                        ðŸ’¡ <strong style={{ color: 'rgba(245,236,215,0.8)' }}>Tip:</strong> Update your metrics weekly. Click Save to store changes.
                       </p>
                       <button onClick={saveMetricsToCloud} disabled={!metricsDirty || metricsSaving} style={{ padding: '10px 20px', background: metricsDirty ? brand.cream : 'rgba(245,236,215,0.2)', border: 'none', borderRadius: '8px', color: metricsDirty ? brand.teal : 'rgba(245,236,215,0.5)', cursor: metricsDirty ? 'pointer' : 'default', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Icon name={metricsSaving ? 'refresh' : 'upload'} size={16} color={metricsDirty ? brand.teal : 'rgba(245,236,215,0.5)'} />
@@ -1756,7 +1758,7 @@
                             {task.title}
                             {task.recurring && <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(96,165,250,0.2)', color: '#60a5fa', borderRadius: '4px', textTransform: 'capitalize' }}>{task.recurringFrequency || 'weekly'}</span>}
                           </div>
-                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} â€¢ {task.category}</div>
+                          <div style={{ fontSize: '12px', color: 'rgba(245,236,215,0.4)' }}>{dateHelpers.formatDate(task.dueDate)} Ã¢â‚¬Â¢ {task.category}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                           <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', background: task.priority === 'high' ? 'rgba(248,113,113,0.2)' : task.priority === 'medium' ? 'rgba(251,191,36,0.2)' : 'rgba(245,236,215,0.1)', color: task.priority === 'high' ? '#f87171' : task.priority === 'medium' ? '#fbbf24' : 'rgba(245,236,215,0.6)' }}>{task.priority}</span>
